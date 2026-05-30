@@ -1,7 +1,6 @@
 -- ============================================
 -- STORED PROCEDURE: sp_update_space
 -- Purpose: Update space details with ownership verification
--- Created: May 23, 2026
 -- ============================================
 
 CREATE OR REPLACE FUNCTION sp_update_space(
@@ -22,8 +21,6 @@ CREATE OR REPLACE FUNCTION sp_update_space(
     p_has_parking BOOLEAN,
     p_has_security BOOLEAN,
     p_has_backup_power BOOLEAN,
-    p_cover_image TEXT,
-    p_gallery_images TEXT[],
     p_cancellation_policy TEXT,
     p_refund_policy TEXT,
     p_late_arrival_policy TEXT
@@ -64,8 +61,6 @@ BEGIN
         has_parking = COALESCE(p_has_parking, has_parking),
         has_security = COALESCE(p_has_security, has_security),
         has_backup_power = COALESCE(p_has_backup_power, has_backup_power),
-        cover_image = COALESCE(p_cover_image, cover_image),
-        gallery_images = COALESCE(p_gallery_images, gallery_images),
         cancellation_policy = COALESCE(p_cancellation_policy, cancellation_policy),
         refund_policy = COALESCE(p_refund_policy, refund_policy),
         late_arrival_policy = COALESCE(p_late_arrival_policy, late_arrival_policy),
@@ -80,5 +75,3 @@ BEGIN
     );
 END;
 $$ LANGUAGE plpgsql;
-
-COMMENT ON FUNCTION sp_update_space(UUID, UUID, VARCHAR, TEXT, TEXT, VARCHAR, VARCHAR, TIME, TIME, TEXT[], BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, TEXT, TEXT[], TEXT, TEXT, TEXT) IS 'Update space details after verifying ownership';

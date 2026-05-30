@@ -346,7 +346,7 @@ export const getMySpaces = async (req, res) => {
             ) ORDER BY u.created_at ASC
         ) as units
         FROM space_units u
-        WHERE u.space_id = $1::UUID AND u.is_active = true`,
+       WHERE u.space_id = $1::UUID`,
         [space.id]
       );
 
@@ -385,40 +385,53 @@ export const updateSpace = async (req, res) => {
       opening_time, closing_time, working_days,
       has_wifi, has_ac, has_coffee, has_printer,
       has_parking, has_security, has_backup_power,
-      cover_image, gallery_images,
       cancellation_policy, refund_policy, late_arrival_policy,
     } = req.body;
 
-    // ✅ FIX: Use $22 (not $23) - 22 parameters total
+    // Convert working_days to array if it's a string
+    let workingDaysArray = working_days;
+    if (working_days && typeof working_days === 'string') {
+      workingDaysArray = working_days.split(',').map(day => day.trim());
+    }
+    if (workingDaysArray && !Array.isArray(workingDaysArray)) {
+      workingDaysArray = [workingDaysArray];
+    }
+
+    // The stored procedure expects exactly 20 parameters (1-20)
     const result = await pool.query(
-      `SELECT sp_update_space($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22) as response`,
+      `SELECT sp_update_space($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) as response`,
       [
-        id,                           // 1
-        owner_id,                     // 2
-        name || null,                 // 3
-        description || null,          // 4
-        address || null,              // 5
-        city || null,                 // 6
-        area || null,                 // 7
-        opening_time || null,         // 8
-        closing_time || null,         // 9
-        working_days || null,         // 10
-        has_wifi ?? false,            // 11
-        has_ac ?? false,              // 12
-        has_coffee ?? false,          // 13
-        has_printer ?? false,         // 14
-        has_parking ?? false,         // 15
-        has_security ?? false,        // 16
-        has_backup_power ?? false,    // 17
-        cover_image || null,          // 18
-        gallery_images || null,       // 19
-        cancellation_policy || null,  // 20
-        refund_policy || null,        // 21
-        late_arrival_policy || null   // 22
+        id,                                    // 1: p_space_id
+        owner_id,                              // 2: p_owner_id
+        name || null,                          // 3: p_name
+        description || null,                   // 4: p_description
+        address || null,                       // 5: p_address
+        city || null,                          // 6: p_city
+        area || null,                          // 7: p_area
+        opening_time || null,                  // 8: p_opening_time
+        closing_time || null,                  // 9: p_closing_time
+        workingDaysArray || null,              // 10: p_working_days (TEXT[])
+        has_wifi ?? false,                     // 11: p_has_wifi
+        has_ac ?? false,                       // 12: p_has_ac
+        has_coffee ?? false,                   // 13: p_has_coffee
+        has_printer ?? false,                  // 14: p_has_printer
+        has_parking ?? false,                  // 15: p_has_parking
+        has_security ?? false,                 // 16: p_has_security
+        has_backup_power ?? false,             // 17: p_has_backup_power
+        cancellation_policy || null,           // 18: p_cancellation_policy
+        refund_policy || null,                 // 19: p_refund_policy
+        late_arrival_policy || null            // 20: p_late_arrival_policy
       ]
     );
 
     const response = result.rows[0]?.response;
+
+    if (!response) {
+      return res.status(500).json({
+        success: false,
+        message: "No response from stored procedure"
+      });
+    }
 
     if (!response.success) {
       return res.status(403).json({
@@ -436,7 +449,8 @@ export const updateSpace = async (req, res) => {
     console.error("updateSpace error:", error.message);
     return res.status(500).json({
       success: false,
-      message: "Server error"
+      message: "Server error",
+      error: error.message
     });
   }
 };
@@ -631,8 +645,8 @@ export const updateUnit = async (req, res) => {
     // Single call to sp_update_unit with all 12 parameters - CAST TO UUID
     const updateResult = await pool.query(
       `SELECT sp_update_unit(
-        $1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9, $10, $11, $12
-      ) as response`,
+  $1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12
+) as response`,
       [
         unitId,                                    // $1: p_unit_id (cast to uuid)
         spaceId,                                   // $2: p_space_id (cast to uuid)
@@ -643,7 +657,7 @@ export const updateUnit = async (req, res) => {
         cleanHourly,                               // $7: p_hourly_rate
         cleanDaily,                                // $8: p_daily_rate
         cleanMonthly,                              // $9: p_monthly_rate
-        imagesArray,                               // $10: p_images (text[])
+        imagesArray ? JSON.stringify(imagesArray) : null,                               // $10: p_images (text[])
         duration !== undefined ? duration : null,  // $11: p_duration
         is_active !== undefined ? is_active : null // $12: p_is_active
       ]

@@ -6,7 +6,7 @@ import {
     checkFavorite,
     getUserFavorites,
     getUnitFavoriteCount
-} from '../controllers/favriouts.controllers.js';
+} from '../controllers/favriouts.controller.js';
 
 const favoritesroutes = express.Router();
 // Public routes (no authentication needed)
