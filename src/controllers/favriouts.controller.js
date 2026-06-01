@@ -102,69 +102,196 @@ export const checkFavorite = async (req, res) => {
 // ============================================
 // GET USER'S FAVORITE UNITS
 // ============================================
+// export const getUserFavorites = async (req, res) => {
+//     try {
+//         const userId = req.user.id;
+
+//         const query = `
+//             SELECT 
+//                 f.id as favorite_id,
+//                 f.created_at as favorited_at,
+//                 u.id as unit_id,
+//                 u.unit_type,
+//                 u.name as unit_name,
+//                 u.total_capacity,
+//                 u.hourly_rate,
+//                 u.daily_rate,
+//                 u.monthly_rate,
+//                 u.images,
+//                 u.is_active as unit_active,
+//                 u.duration,
+//                 s.id as space_id,
+//                 s.name as space_name,
+//                 s.city,
+//                 s.area,
+//                 s.address,
+//                 s.description as space_description
+//             FROM favorites f
+//             INNER JOIN space_units u ON u.id = f.unit_id
+//             INNER JOIN spaces s ON s.id = u.space_id
+//             WHERE f.user_id = $1
+//             ORDER BY f.created_at DESC
+//         `;
+
+//         const result = await pool.query(query, [userId]);
+
+//         const favorites = result.rows.map(row => ({
+//             favorite_id: row.favorite_id,
+//             favorited_at: row.favorited_at,
+//             unit: {
+//                 id: row.unit_id,
+//                 unit_type: row.unit_type,
+//                 name: row.unit_name,
+//                 total_capacity: row.total_capacity,
+//                 hourly_rate: row.hourly_rate ? parseFloat(row.hourly_rate) : null,
+//                 daily_rate: row.daily_rate ? parseFloat(row.daily_rate) : null,
+//                 monthly_rate: row.monthly_rate ? parseFloat(row.monthly_rate) : null,
+//                 images: row.images || [],
+//                 duration: row.duration,
+//                 is_active: row.unit_active
+//             },
+//             space: {
+//                 id: row.space_id,
+//                 name: row.space_name,
+//                 city: row.city,
+//                 area: row.area,
+//                 address: row.address,
+//                 description: row.space_description
+//             }
+//         }));
+
+//         return res.json({
+//             success: true,
+//             count: favorites.length,
+//             favorites: favorites
+//         });
+//     } catch (error) {
+//         console.error("Get favorites error:", error);
+//         return res.status(500).json({
+//             success: false,
+//             message: "Server error: " + error.message
+//         });
+//     }
+// };
+
+// In your favriouts.controller.js
+
+// GET USER'S FAVORITE UNITS with Nested Structure
 export const getUserFavorites = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const query = `
-            SELECT 
+        const result = await pool.query(
+            `SELECT 
                 f.id as favorite_id,
                 f.created_at as favorited_at,
                 u.id as unit_id,
+                u.space_id,
                 u.unit_type,
                 u.name as unit_name,
                 u.total_capacity,
                 u.hourly_rate,
                 u.daily_rate,
                 u.monthly_rate,
-                u.images,
-                u.is_active as unit_active,
                 u.duration,
+                u.is_active as unit_active,
+                u.created_at as unit_created_at,
+                u.updated_at as unit_updated_at,
                 s.id as space_id,
                 s.name as space_name,
+                s.description as space_description,
+                s.address,
                 s.city,
                 s.area,
-                s.address,
-                s.description as space_description
+                s.latitude,
+                s.longitude,
+                s.opening_time,
+                s.closing_time,
+                s.working_days,
+                s.has_wifi,
+                s.has_ac,
+                s.has_coffee,
+                s.has_printer,
+                s.has_parking,
+                s.has_security,
+                s.has_backup_power,
+                s.owner_id,
+                s.is_verified,
+                s.cancellation_policy,
+                s.refund_policy,
+                s.late_arrival_policy,
+                -- Get images from unit_images table
+                COALESCE(
+                    (SELECT json_agg(
+                        json_build_object(
+                            'id', ui.id,
+                            'image_base64', ui.image_base64,
+                            'display_order', ui.display_order,
+                            'is_primary', ui.is_primary
+                        ) ORDER BY ui.display_order
+                    ) FROM unit_images ui WHERE ui.unit_id = u.id),
+                    '[]'::json
+                ) as images
             FROM favorites f
-            INNER JOIN space_units u ON u.id = f.unit_id
-            INNER JOIN spaces s ON s.id = u.space_id
-            WHERE f.user_id = $1
-            ORDER BY f.created_at DESC
-        `;
+            JOIN space_units u ON f.unit_id = u.id
+            JOIN spaces s ON u.space_id = s.id
+            WHERE f.user_id = $1 AND u.is_active = true AND s.is_active = true
+            ORDER BY f.created_at DESC`,
+            [userId]
+        );
 
-        const result = await pool.query(query, [userId]);
-
+        // Build nested response structure
         const favorites = result.rows.map(row => ({
             favorite_id: row.favorite_id,
             favorited_at: row.favorited_at,
             unit: {
                 id: row.unit_id,
+                space_id: row.space_id,
                 unit_type: row.unit_type,
                 name: row.unit_name,
-                total_capacity: row.total_capacity,
+                total_capacity: row.total_capacity ? parseInt(row.total_capacity) : null,
                 hourly_rate: row.hourly_rate ? parseFloat(row.hourly_rate) : null,
                 daily_rate: row.daily_rate ? parseFloat(row.daily_rate) : null,
                 monthly_rate: row.monthly_rate ? parseFloat(row.monthly_rate) : null,
-                images: row.images || [],
                 duration: row.duration,
-                is_active: row.unit_active
+                is_active: row.unit_active,
+                created_at: row.unit_created_at,
+                updated_at: row.unit_updated_at,
+                images: row.images || []
             },
             space: {
                 id: row.space_id,
                 name: row.space_name,
+                description: row.space_description,
+                address: row.address,
                 city: row.city,
                 area: row.area,
-                address: row.address,
-                description: row.space_description
+                latitude: row.latitude,
+                longitude: row.longitude,
+                opening_time: row.opening_time,
+                closing_time: row.closing_time,
+                working_days: row.working_days,
+                has_wifi: row.has_wifi,
+                has_ac: row.has_ac,
+                has_coffee: row.has_coffee,
+                has_printer: row.has_printer,
+                has_parking: row.has_parking,
+                has_security: row.has_security,
+                has_backup_power: row.has_backup_power,
+                owner_id: row.owner_id,
+                is_verified: row.is_verified,
+                cancellation_policy: row.cancellation_policy,
+                refund_policy: row.refund_policy,
+                late_arrival_policy: row.late_arrival_policy
             }
         }));
 
-        return res.json({
+        return res.status(200).json({
             success: true,
             count: favorites.length,
             favorites: favorites
         });
+
     } catch (error) {
         console.error("Get favorites error:", error);
         return res.status(500).json({

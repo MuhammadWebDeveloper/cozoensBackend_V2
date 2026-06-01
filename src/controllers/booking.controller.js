@@ -255,31 +255,96 @@ export const createBooking = async (req, res) => {
 // ============================================
 // 2. GET MY BOOKINGS (Buyer)
 // ============================================
+// export const getMyBookings = async (req, res) => {
+//     try {
+//         const user_id = req.user.id;
+
+//         const result = await pool.query(
+//             `SELECT b.*,
+//                 json_build_object(
+//                     'id', u.id,
+//                     'name', u.name,
+//                     'unit_type', u.unit_type,
+//                     'total_capacity', u.total_capacity,
+//                     'images', u.images
+//                 ) as unit,
+//                 json_build_object(
+//                     'id', s.id,
+//                     'name', s.name,
+//                     'address', s.address,
+//                     'city', s.city,
+//                     'area', s.area
+//                 ) as space
+//              FROM bookings b
+//              JOIN space_units u ON u.id = b.space_unit_id
+//              JOIN spaces s ON s.id = u.space_id
+//              WHERE b.user_id = $1
+//              ORDER BY 
+//                 CASE 
+//                     WHEN b.status = 'pending' THEN 1 
+//                     WHEN b.status = 'confirmed' THEN 2 
+//                     ELSE 3 
+//                 END,
+//                 b.created_at DESC`,
+//             [user_id]
+//         );
+
+//         return res.status(200).json({
+//             success: true,
+//             count: result.rows.length,
+//             bookings: result.rows
+//         });
+//     } catch (error) {
+//         console.error("getMyBookings error:", error.message);
+//         return res.status(500).json({ success: false, message: "Server error" });
+//     }
+// };
+
+
 export const getMyBookings = async (req, res) => {
     try {
         const user_id = req.user.id;
 
         const result = await pool.query(
-            `SELECT b.*,
-                json_build_object(
-                    'id', u.id,
-                    'name', u.name,
-                    'unit_type', u.unit_type,
-                    'total_capacity', u.total_capacity,
-                    'images', u.images
-                ) as unit,
-                json_build_object(
-                    'id', s.id,
-                    'name', s.name,
-                    'address', s.address,
-                    'city', s.city,
-                    'area', s.area
-                ) as space
-             FROM bookings b
-             JOIN space_units u ON u.id = b.space_unit_id
-             JOIN spaces s ON s.id = u.space_id
-             WHERE b.user_id = $1
-             ORDER BY 
+            `SELECT 
+                b.id,
+                b.space_unit_id,
+                b.start_time,
+                b.end_time,
+                b.total_price,
+                b.status,
+                b.booking_ref,
+                b.created_at,
+                b.updated_at,
+                u.id as unit_id,
+                u.name as unit_name,
+                u.unit_type,
+                u.total_capacity,
+                u.hourly_rate,
+                u.daily_rate,
+                u.monthly_rate,
+                s.id as space_id,
+                s.name as space_name,
+                s.address,
+                s.city,
+                s.area,
+                -- Get images from unit_images table
+                COALESCE(
+                    (SELECT json_agg(
+                        json_build_object(
+                            'id', ui.id,
+                            'image_base64', ui.image_base64,
+                            'display_order', ui.display_order,
+                            'is_primary', ui.is_primary
+                        ) ORDER BY ui.display_order
+                    ) FROM unit_images ui WHERE ui.unit_id = u.id),
+                    '[]'::json
+                ) as images
+            FROM bookings b
+            JOIN space_units u ON u.id = b.space_unit_id
+            JOIN spaces s ON s.id = u.space_id
+            WHERE b.user_id = $1
+            ORDER BY 
                 CASE 
                     WHEN b.status = 'pending' THEN 1 
                     WHEN b.status = 'confirmed' THEN 2 
@@ -289,16 +354,51 @@ export const getMyBookings = async (req, res) => {
             [user_id]
         );
 
+        // Format the response with nested structure
+        const bookings = result.rows.map(row => ({
+            id: row.id,
+            space_unit_id: row.space_unit_id,
+            start_time: row.start_time,
+            end_time: row.end_time,
+            total_price: parseFloat(row.total_price),
+            status: row.status,
+            booking_ref: row.booking_ref,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            unit: {
+                id: row.unit_id,
+                name: row.unit_name,
+                unit_type: row.unit_type,
+                total_capacity: row.total_capacity,
+                hourly_rate: row.hourly_rate ? parseFloat(row.hourly_rate) : null,
+                daily_rate: row.daily_rate ? parseFloat(row.daily_rate) : null,
+                monthly_rate: row.monthly_rate ? parseFloat(row.monthly_rate) : null,
+                images: row.images || []
+            },
+            space: {
+                id: row.space_id,
+                name: row.space_name,
+                address: row.address,
+                city: row.city,
+                area: row.area
+            }
+        }));
+
         return res.status(200).json({
             success: true,
-            count: result.rows.length,
-            bookings: result.rows
+            count: bookings.length,
+            bookings: bookings
         });
     } catch (error) {
         console.error("getMyBookings error:", error.message);
-        return res.status(500).json({ success: false, message: "Server error" });
+        return res.status(500).json({
+            success: false,
+            message: "Server error",
+            error: error.message
+        });
     }
 };
+
 
 // ============================================
 // 3. GET BOOKING BY ID
