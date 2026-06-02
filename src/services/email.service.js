@@ -287,3 +287,125 @@ export const sendBookingNotificationToAdmin = async (owner, buyer, unit, booking
         return false;
     }
 };
+// =============================
+// SEND PASSWORD RESET EMAIL
+// =============================
+export const sendPasswordResetEmail = async (userData) => {
+    try {
+        const { email, full_name, resetUrl } = userData;
+
+        // ✅ Just use the existing transporter, don't try to create a new one
+        await transporter.sendMail({
+            from: `"CoZones" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: 'Password Reset Request - CoZones',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <h1 style="color: #011CCD;">CoZones</h1>
+                        <h2 style="color: #333;">Reset Your Password</h2>
+                    </div>
+                    
+                    <p>Dear <strong>${full_name}</strong>,</p>
+                    
+                    <p>We received a request to reset your password for your CoZones account. Click the button below to create a new password:</p>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="${resetUrl}" 
+                           style="background-color: #011CCD; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                            Reset Password
+                        </a>
+                    </div>
+                    
+                    <p>This link will expire in <strong>1 hour</strong>.</p>
+                    
+                    <p>If you didn't request this, please ignore this email. Your password will remain unchanged.</p>
+                    
+                    <hr style="margin: 20px 0; border: none; border-top: 1px solid #e0e0e0;">
+                    
+                    <p style="color: #666; font-size: 12px; text-align: center;">
+                        CoZones - Your Space, Your Way<br>
+                        Need help? Contact us at support@cozones.com
+                    </p>
+                </div>
+            `,
+        });
+
+        console.log(`✅ Password reset email sent to: ${email}`);
+
+    } catch (error) {
+        console.error('❌ Password reset email error:', error.message);
+        // Don't throw error - just log it so the API doesn't fail
+        // throw error;
+    }
+};
+
+// =============================
+// SEND HOST APPROVAL EMAIL
+// =============================
+export const sendHostApprovalEmail = async (userData) => {
+    try {
+        await transporter.sendMail({
+            from: `"CoZones" <${process.env.EMAIL_USER}>`,
+            to: userData.email,
+            subject: '🎉 Congratulations! You are now a Host on CoZones',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #011CCD;">Welcome to the Host Family! 🎉</h2>
+                    <p>Dear <strong>${userData.full_name}</strong>,</p>
+                    <p>Great news! Your host application has been <strong style="color: green;">APPROVED</strong>.</p>
+                    <p>You can now:</p>
+                    <ul>
+                        <li>✓ List your spaces</li>
+                        <li>✓ Manage bookings</li>
+                        <li>✓ Earn money from your property</li>
+                    </ul>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="http://localhost:5173/owner/dashboard" 
+                           style="background: #011CCD; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+                            Go to Host Dashboard
+                        </a>
+                    </div>
+                    <p>Start listing your spaces today!</p>
+                    <p>Best regards,<br>The CoZones Team</p>
+                </div>
+            `
+        });
+        console.log(`✅ Host approval email sent to: ${userData.email}`);
+    } catch (error) {
+        console.error('❌ Host approval email error:', error.message);
+    }
+};
+
+// =============================
+// SEND HOST REJECTION EMAIL
+// =============================
+export const sendHostRejectionEmail = async (userData) => {
+    try {
+        await transporter.sendMail({
+            from: `"CoZones" <${process.env.EMAIL_USER}>`,
+            to: userData.email,
+            subject: 'Update on Your Host Application - CoZones',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #e53e3e;">Host Application Update</h2>
+                    <p>Dear <strong>${userData.full_name}</strong>,</p>
+                    <p>Thank you for your interest in becoming a host on CoZones.</p>
+                    <p>After careful review, we regret to inform you that your application has been <strong style="color: red;">REJECTED</strong>.</p>
+                    <p><strong>Reason:</strong> ${userData.reason || 'Information provided does not meet our requirements'}</p>
+                    <p>You can reapply after addressing the above concerns.</p>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="http://localhost:5173/become-host" 
+                           style="background: #011CCD; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+                            Reapply
+                        </a>
+                    </div>
+                    <p>If you have questions, contact our support team.</p>
+                </div>
+            `
+        });
+        console.log(`✅ Host rejection email sent to: ${userData.email}`);
+    } catch (error) {
+        console.error('❌ Host rejection email error:', error.message);
+    }
+};

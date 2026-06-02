@@ -1337,76 +1337,184 @@ export const resolveDispute = async (req, res) => {
 // ============================================
 // 8. OWNER CANCEL BOOKING (Add this at the end of your controller file)
 // ============================================
+// Backend/src/controllers/booking.controller.js
+
 export const ownerCancelBooking = async (req, res) => {
     try {
         const { bookingId } = req.params;
         const owner_id = req.user.id;
         const { reason } = req.body;
 
-        if (!reason) {
+        console.log('Cancel request:', { bookingId, owner_id, reason }); // Debug log
+
+        // Validate reason
+        if (!reason || reason.trim() === '') {
             return res.status(400).json({
                 success: false,
                 message: "Reason for cancellation is required"
             });
         }
 
+        // Get booking details with proper validation
         const bookingDetails = await pool.query(
-            `SELECT b.*, u.name as unit_name, s.name as space_name, s.owner_id,
-                    bu.full_name as buyer_name, bu.email as buyer_email,
-                    ow.email as owner_email, ow.full_name as owner_name
+            `SELECT b.*, 
+                    u.name as unit_name, 
+                    s.name as space_name, 
+                    s.owner_id,
+                    bu.full_name as buyer_name, 
+                    bu.email as buyer_email
              FROM bookings b
              JOIN space_units u ON u.id = b.space_unit_id
              JOIN spaces s ON s.id = u.space_id
              JOIN users bu ON bu.id = b.user_id
-             JOIN users ow ON ow.id = s.owner_id
-             WHERE b.id = $1 AND s.owner_id = $2 
-             AND b.status IN ('pending', 'confirmed')
-             AND b.start_time > NOW()`,
+             WHERE b.id = $1 
+               AND s.owner_id = $2 
+               AND b.status IN ('pending', 'confirmed')
+               AND b.start_time > NOW()`,
             [bookingId, owner_id]
         );
+
+        console.log('Booking found:', bookingDetails.rows.length); // Debug log
 
         if (bookingDetails.rows.length === 0) {
             return res.status(404).json({
                 success: false,
-                message: "Booking not found or cannot be cancelled"
+                message: "Booking not found, already processed, cannot be cancelled, or is in the past"
             });
         }
 
         const booking = bookingDetails.rows[0];
 
+        // Update booking status
         const result = await pool.query(
             `UPDATE bookings 
              SET status = 'cancelled_by_owner', 
+                 cancellation_reason = $1,
                  updated_at = NOW()
-             WHERE id = $1 RETURNING *`,
-            [bookingId]
+             WHERE id = $2 
+             RETURNING *`,
+            [reason.trim(), bookingId]
         );
 
-        // Send email to buyer
+        console.log('Booking cancelled:', result.rows[0].id); // Debug log
+
+        // Send email to buyer (don't let email failure break the response)
         try {
-            await transporter.sendMail({
-                from: `"CoZones" <${process.env.EMAIL_USER}>`,
-                to: booking.buyer_email,
-                subject: `⚠️ Booking Cancelled by Owner - ${booking.booking_ref}`,
-                html: `<div><h2>Booking Cancelled</h2><p>Reason: ${reason}</p></div>`
-            });
+            // Make sure transporter is defined and configured
+            if (transporter) {
+                await transporter.sendMail({
+                    from: `"CoZones" <${process.env.EMAIL_USER}>`,
+                    to: booking.buyer_email,
+                    subject: `⚠️ Booking Cancelled by Owner - ${booking.booking_ref}`,
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+                            <h2 style="color: #e53e3e;">Booking Cancelled ❌</h2>
+                            <p>Dear <strong>${booking.buyer_name}</strong>,</p>
+                            <p>We regret to inform you that the space owner has cancelled your booking.</p>
+                            
+                            <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                                <h3 style="color: #011CCD;">Booking Details:</h3>
+                                <p><strong>Booking Ref:</strong> ${booking.booking_ref}</p>
+                                <p><strong>Unit:</strong> ${booking.unit_name}</p>
+                                <p><strong>Space:</strong> ${booking.space_name}</p>
+                                <p><strong>Date:</strong> ${new Date(booking.start_time).toLocaleString()}</p>
+                            </div>
+                            
+                            <div style="background: #fee2e2; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                                <p><strong>Reason for cancellation:</strong></p>
+                                <p>${reason}</p>
+                            </div>
+                            
+                            <p>Your payment will be refunded as per our refund policy. Please contact support if you have any questions.</p>
+                            
+                            <div style="text-align: center; margin: 30px 0;">
+                                <a href="http://localhost:5173/spaces" 
+                                   style="background: #011CCD; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                                    Browse Other Spaces
+                                </a>
+                            </div>
+                        </div>
+                    `,
+                });
+                console.log(`📧 Cancellation email sent to buyer: ${booking.buyer_email}`);
+            } else {
+                console.warn('Email transporter not configured');
+            }
         } catch (emailErr) {
-            console.error('Email failed:', emailErr.message);
+            console.error('❌ Cancellation email failed:', emailErr.message);
+            // Don't throw error - continue with response
         }
 
         return res.status(200).json({
             success: true,
-            message: "Booking cancelled by owner",
+            message: "Booking cancelled successfully. Customer has been notified.",
             booking: result.rows[0]
         });
+
     } catch (error) {
-        console.error("ownerCancelBooking error:", error.message);
-        return res.status(500).json({ success: false, message: "Server error" });
+        console.error("ownerCancelBooking error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error: " + error.message
+        });
     }
 };
 
+// ============================================
+// DELETE BOOKING (Owner) - Permanently remove booking
+// ============================================
+// Backend/src/controllers/booking.controller.js
 
+// Backend/src/controllers/booking.controller.js
 
+export const deleteBooking = async (req, res) => {
+    try {
+        const { bookingId } = req.params;
+        const owner_id = req.user.id;
+
+        // First, verify the booking belongs to the owner's space
+        const bookingCheck = await pool.query(
+            `SELECT b.id, b.booking_ref, s.owner_id
+             FROM bookings b
+             JOIN space_units u ON u.id = b.space_unit_id
+             JOIN spaces s ON s.id = u.space_id
+             WHERE b.id = $1 AND s.owner_id = $2`,
+            [bookingId, owner_id]
+        );
+
+        if (bookingCheck.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Booking not found or you don't have permission to delete it"
+            });
+        }
+
+        const booking = bookingCheck.rows[0];
+
+        // ✅ NO STATUS CHECK - Delete any booking regardless of status
+        const result = await pool.query(
+            `DELETE FROM bookings 
+             WHERE id = $1 
+             RETURNING id, booking_ref`,
+            [bookingId]
+        );
+
+        console.log(`✅ Booking ${result.rows[0].booking_ref} deleted by owner ${owner_id}`);
+
+        return res.status(200).json({
+            success: true,
+            message: "Booking deleted successfully",
+            deletedBooking: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error("deleteBooking error:", error.message);
+        return res.status(500).json({
+            success: false,
+            message: "Server error: " + error.message
+        });
+    }
+};
 // ============================================
 // DELETE ALL BOOKINGS (for raw PostgreSQL)
 // ============================================

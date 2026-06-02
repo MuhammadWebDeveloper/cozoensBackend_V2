@@ -7,6 +7,7 @@ import spacesRoutes from './src/routes/spaces.routes.js';
 import cors from "cors";
 import favoritesroutes from './src/routes/favrioutes.routes.js';
 import Bookingroutes from './src/routes/bookings.routes.js';
+import Hostrouter from './src/routes/hostRequest.routes.js';
 
 dotenv.config();
 const PORT = process.env.PORT || 5000;
@@ -21,6 +22,8 @@ app.use("/api/auth", routes);
 app.use("/api/spaces", spacesRoutes);
 app.use("/api/favorites", favoritesroutes);
 app.use("/api/bookings", Bookingroutes);
+
+app.use("/api/host-requests", Hostrouter);
 
 app.get('/', (req, res) => {
     res.send('Hello World!');
