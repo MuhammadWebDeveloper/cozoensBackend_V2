@@ -33,13 +33,24 @@ Bookingroutes.get('/owner/requests', protect, ownerOnly, getOwnerBookings);
 Bookingroutes.patch('/:bookingId/confirm', protect, ownerOnly, confirmBooking);
 Bookingroutes.patch('/:bookingId/reject', protect, ownerOnly, rejectBooking);
 Bookingroutes.patch('/:bookingId/owner-cancel', protect, ownerOnly, ownerCancelBooking); // ✅ NEW
-// In your booking.routes.js
 Bookingroutes.delete('/:bookingId/delete', protect, ownerOnly, deleteBooking);
+// In your booking.routes.js
 
 // ============ ADMIN Routes ============
 Bookingroutes.get('/admin/all-bookings', protect, adminOnly, adminGetAllBookings); // ✅ NEW
+ 
+
+
+
+
+
+
+
+
+
 
 // ============ DISPUTE Routes ============
+
 Bookingroutes.post('/:bookingId/dispute', protect, createDispute); // ✅ NEW
 Bookingroutes.get('/admin/disputes', protect, adminOnly, getAllDisputes); // ✅ NEW
 Bookingroutes.patch('/admin/disputes/:disputeId/resolve', protect, adminOnly, resolveDispute); // ✅ NEW

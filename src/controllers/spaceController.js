@@ -1341,12 +1341,93 @@ export const addSpaceUnit = async (req, res) => {
 // GET ALL SPACES (public - browse page)
 // GET /api/spaces?city=Lahore&type=meeting_room
 // =============================
+// export const getAllSpaces = async (req, res) => {
+//   try {
+//     const { city, type } = req.query;
+
+//     // Build query with unit_images join
+//     let query = `
+//       SELECT DISTINCT
+//         s.id, s.name, s.description, s.address, s.city, s.area,
+//         s.latitude, s.longitude, s.google_maps_link,
+//         s.opening_time, s.closing_time, s.working_days,
+//         s.has_wifi, s.has_ac, s.has_coffee, s.has_printer,
+//         s.has_parking, s.has_security, s.has_backup_power,
+//         s.cancellation_policy, s.refund_policy, s.late_arrival_policy,
+//         s.is_active, s.is_verified, s.created_at, s.updated_at,
+//         COALESCE(
+//           (SELECT json_agg(
+//             json_build_object(
+//               'id', u.id,
+//               'unit_type', u.unit_type,
+//               'name', u.name,
+//               'total_capacity', u.total_capacity,
+//               'hourly_rate', u.hourly_rate,
+//               'daily_rate', u.daily_rate,
+//               'monthly_rate', u.monthly_rate,
+//               'duration', u.duration,
+//               'images', COALESCE(
+//                 (SELECT json_agg(
+//                   json_build_object(
+//                     'id', ui.id,
+//                     'image_base64', ui.image_base64,
+//                     'display_order', ui.display_order,
+//                     'is_primary', ui.is_primary
+//                   ) ORDER BY ui.display_order
+//                 ) FROM unit_images ui WHERE ui.unit_id = u.id),
+//                 '[]'::json
+//               )
+//             )
+//           ) FROM space_units u WHERE u.space_id = s.id AND u.is_active = true),
+//           '[]'::json
+//         ) as units
+//       FROM spaces s
+//       WHERE s.is_active = true
+//     `;
+
+//     const queryParams = [];
+//     let paramIndex = 1;
+
+//     if (city) {
+//       query += ` AND s.city ILIKE $${paramIndex}`;
+//       queryParams.push(`%${city}%`);
+//       paramIndex++;
+//     }
+
+//     if (type) {
+//       query += ` AND EXISTS (
+//         SELECT 1 FROM space_units u 
+//         WHERE u.space_id = s.id AND u.unit_type = $${paramIndex} AND u.is_active = true
+//       )`;
+//       queryParams.push(type);
+//       paramIndex++;
+//     }
+
+//     query += ` ORDER BY s.created_at DESC`;
+
+//     const result = await pool.query(query, queryParams);
+
+//     return res.status(200).json({
+//       success: true,
+//       count: result.rows.length,
+//       spaces: result.rows,
+//     });
+//   } catch (error) {
+//     console.error("getAllSpaces error:", error.message);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error"
+//     });
+//   }
+// };
+
+
 export const getAllSpaces = async (req, res) => {
   try {
     const { city, type } = req.query;
 
-    // Build query with unit_images join
-    let query = `
+    // First, get distinct spaces without the JSON aggregation
+    let baseQuery = `
       SELECT DISTINCT
         s.id, s.name, s.description, s.address, s.city, s.area,
         s.latitude, s.longitude, s.google_maps_link,
@@ -1355,32 +1436,7 @@ export const getAllSpaces = async (req, res) => {
         s.has_parking, s.has_security, s.has_backup_power,
         s.cancellation_policy, s.refund_policy, s.late_arrival_policy,
         s.is_active, s.is_verified, s.created_at, s.updated_at,
-        COALESCE(
-          (SELECT json_agg(
-            json_build_object(
-              'id', u.id,
-              'unit_type', u.unit_type,
-              'name', u.name,
-              'total_capacity', u.total_capacity,
-              'hourly_rate', u.hourly_rate,
-              'daily_rate', u.daily_rate,
-              'monthly_rate', u.monthly_rate,
-              'duration', u.duration,
-              'images', COALESCE(
-                (SELECT json_agg(
-                  json_build_object(
-                    'id', ui.id,
-                    'image_base64', ui.image_base64,
-                    'display_order', ui.display_order,
-                    'is_primary', ui.is_primary
-                  ) ORDER BY ui.display_order
-                ) FROM unit_images ui WHERE ui.unit_id = u.id),
-                '[]'::json
-              )
-            )
-          ) FROM space_units u WHERE u.space_id = s.id AND u.is_active = true),
-          '[]'::json
-        ) as units
+        s.cover_image, s.gallery_images
       FROM spaces s
       WHERE s.is_active = true
     `;
@@ -1389,13 +1445,13 @@ export const getAllSpaces = async (req, res) => {
     let paramIndex = 1;
 
     if (city) {
-      query += ` AND s.city ILIKE $${paramIndex}`;
+      baseQuery += ` AND s.city ILIKE $${paramIndex}`;
       queryParams.push(`%${city}%`);
       paramIndex++;
     }
 
     if (type) {
-      query += ` AND EXISTS (
+      baseQuery += ` AND EXISTS (
         SELECT 1 FROM space_units u 
         WHERE u.space_id = s.id AND u.unit_type = $${paramIndex} AND u.is_active = true
       )`;
@@ -1403,20 +1459,53 @@ export const getAllSpaces = async (req, res) => {
       paramIndex++;
     }
 
-    query += ` ORDER BY s.created_at DESC`;
+    baseQuery += ` ORDER BY s.created_at DESC`;
 
-    const result = await pool.query(query, queryParams);
+    // Get spaces first
+    const spacesResult = await pool.query(baseQuery, queryParams);
+
+    // Then fetch units for each space separately
+    const spacesWithUnits = await Promise.all(
+      spacesResult.rows.map(async (space) => {
+        const unitsQuery = `
+          SELECT 
+            u.id, u.unit_type, u.name, u.total_capacity,
+            u.hourly_rate, u.daily_rate, u.monthly_rate, u.duration,
+            COALESCE(
+              (SELECT json_agg(
+                json_build_object(
+                  'id', ui.id,
+                  'image_base64', ui.image_base64,
+                  'display_order', ui.display_order,
+                  'is_primary', ui.is_primary
+                ) ORDER BY ui.display_order
+              ) FROM unit_images ui WHERE ui.unit_id = u.id),
+              '[]'::json
+            ) as images
+          FROM space_units u
+          WHERE u.space_id = $1 AND u.is_active = true
+        `;
+
+        const unitsResult = await pool.query(unitsQuery, [space.id]);
+
+        return {
+          ...space,
+          units: unitsResult.rows
+        };
+      })
+    );
 
     return res.status(200).json({
       success: true,
-      count: result.rows.length,
-      spaces: result.rows,
+      count: spacesWithUnits.length,
+      spaces: spacesWithUnits,
     });
   } catch (error) {
-    console.error("getAllSpaces error:", error.message);
+    console.error("getAllSpaces error:", error);
     return res.status(500).json({
       success: false,
-      message: "Server error"
+      message: "Server error",
+      error: error.message
     });
   }
 };

@@ -65,6 +65,7 @@ export const signup = async (req, res) => {
 export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
+        // console.log(req.body);
 
         // Call stored procedure - gets user + password_hash
         const result = await pool.query(

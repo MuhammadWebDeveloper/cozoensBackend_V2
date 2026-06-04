@@ -1,5 +1,5 @@
-// Backend/src/services/email.service.js
 import nodemailer from 'nodemailer';
+import { Base_URL } from './fronturlconstants.js';
 
 // Create email transporter
 const transporter = nodemailer.createTransport({
@@ -33,7 +33,7 @@ export const sendWelcomeEmail = async (user) => {
                             <li>✓ Connect with workspace providers</li>
                         </ul>
                         <div style="text-align: center; margin: 30px 0;">
-                            <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/spaces" 
+                            <a href="${Base_URL}spaces" 
                                style="background-color: #011CCD; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
                                 Explore Spaces
                             </a>
@@ -79,7 +79,7 @@ export const sendAdminNotification = async (user) => {
                             <p><strong>👥 Role:</strong> ${user.role || 'user'}</p>
                         </div>
                         <div style="text-align: center; margin: 30px 0;">
-                            <a href="${process.env.ADMIN_URL || 'http://localhost:5173/admin/users'}" 
+                            <a href="${Base_URL}admin/users" 
                                style="background-color: #011CCD; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
                                 View User
                             </a>
@@ -136,81 +136,6 @@ export const sendLoginNotification = async (user, req) => {
         return false;
     }
 };
-// // Send booking notification to owner
-// export const sendBookingNotificationToOwner = async (owner, buyer, unit, booking) => {
-//     try {
-//         await transporter.sendMail({
-//             from: `"CoZones" <${process.env.EMAIL_USER}>`,
-//             to: owner.email,
-//             subject: `New Booking on Your Space - ${booking.booking_ref}`,
-//             html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-//                     <h2 style="color: #011CCD;">New Booking Received!</h2>
-//                     <p>Dear <strong>${owner.full_name}</strong>,</p>
-//                     <p>Someone just booked your space unit.</p>
-//                     <div style="background: #f0f4ff; padding: 20px; border-radius: 8px; margin: 20px 0;">
-//                         <h3 style="color: #011CCD; margin-top: 0;">Booking Details</h3>
-//                         <table width="100%" cellpadding="8">
-//                             <tr><td><strong>Booking Ref:</strong></td><td>${booking.booking_ref}</td></tr>
-//                             <tr><td><strong>Space:</strong></td><td>${unit.space_name}</td></tr>
-//                             <tr><td><strong>Unit:</strong></td><td>${unit.name || unit.unit_type}</td></tr>
-//                             <tr><td><strong>From:</strong></td><td>${new Date(booking.start_time).toLocaleString()}</td></tr>
-//                             <tr><td><strong>To:</strong></td><td>${new Date(booking.end_time).toLocaleString()}</td></tr>
-//                             <tr><td><strong>Amount:</strong></td><td><strong style="color: #011CCD;">PKR ${parseFloat(booking.total_price).toLocaleString()}</strong></td></tr>
-//                         </table>
-//                     </div>
-//                     <div style="background: #e6f7e6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-//                         <h3 style="color: #2d7a2d; margin-top: 0;">Customer Info</h3>
-//                         <p><strong>Name:</strong> ${buyer.full_name}</p>
-//                         <p><strong>Email:</strong> ${buyer.email}</p>
-//                         <p><strong>Phone:</strong> ${buyer.phone || 'Not provided'}</p>
-//                     </div>
-//                     <div style="text-align: center; margin-top: 30px;">
-//                         <a href="http://localhost:5173/owner-bookings" style="background: #011CCD; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px;">View in Dashboard</a>
-//                     </div>
-//                 </div>`
-//         });
-//         console.log('Owner booking email sent to: ' + owner.email);
-//         return true;
-//     } catch (error) {
-//         console.error('Owner booking email failed: ' + error.message);
-//         return false;
-//     }
-// };
-
-// // Send booking notification to admin
-// export const sendBookingNotificationToAdmin = async (owner, buyer, unit, booking) => {
-//     try {
-//         const adminEmail = process.env.ADMIN_EMAIL || 'admin@cozones.com';
-//         await transporter.sendMail({
-//             from: `"CoZones System" <${process.env.EMAIL_USER}>`,
-//             to: adminEmail,
-//             subject: `New Booking Alert - ${booking.booking_ref}`,
-//             html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-//                     <h2 style="color: #011CCD;">New Booking on Platform</h2>
-//                     <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-//                         <table width="100%" cellpadding="8">
-//                             <tr><td><strong>Booking Ref:</strong></td><td>${booking.booking_ref}</td></tr>
-//                             <tr><td><strong>Buyer:</strong></td><td>${buyer.full_name} (${buyer.email})</td></tr>
-//                             <tr><td><strong>Owner:</strong></td><td>${owner.full_name} (${owner.email})</td></tr>
-//                             <tr><td><strong>Space:</strong></td><td>${unit.space_name}</td></tr>
-//                             <tr><td><strong>Unit:</strong></td><td>${unit.name || unit.unit_type}</td></tr>
-//                             <tr><td><strong>From:</strong></td><td>${new Date(booking.start_time).toLocaleString()}</td></tr>
-//                             <tr><td><strong>To:</strong></td><td>${new Date(booking.end_time).toLocaleString()}</td></tr>
-//                             <tr><td><strong>Amount:</strong></td><td>PKR ${parseFloat(booking.total_price).toLocaleString()}</td></tr>
-//                         </table>
-//                     </div>
-//                     <div style="text-align: center; margin-top: 30px;">
-//                         <a href="http://localhost:5173/admin/bookings" style="background: #011CCD; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px;">View in Admin Panel</a>
-//                     </div>
-//                 </div>`
-//         });
-//         console.log('Admin booking notification sent to: ' + adminEmail);
-//         return true;
-//     } catch (error) {
-//         console.error('Admin booking email failed: ' + error.message);
-//         return false;
-//     }
-// };
 
 // Send booking notification to owner
 export const sendBookingNotificationToOwner = async (owner, buyer, unit, booking) => {
@@ -241,7 +166,7 @@ export const sendBookingNotificationToOwner = async (owner, buyer, unit, booking
                         <p><strong>Phone:</strong> ${buyer.phone || 'Not provided'}</p>
                     </div>
                     <div style="text-align: center; margin-top: 30px;">
-                        <a href="http://localhost:5173/owner-bookings" style="background: #011CCD; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px;">View in Dashboard</a>
+                        <a href="${Base_URL}owner-bookings" style="background: #011CCD; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px;">View in Dashboard</a>
                     </div>
                 </div>`
         });
@@ -276,7 +201,7 @@ export const sendBookingNotificationToAdmin = async (owner, buyer, unit, booking
                         </table>
                     </div>
                     <div style="text-align: center; margin-top: 30px;">
-                        <a href="http://localhost:5173/admin/bookings" style="background: #011CCD; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px;">View in Admin Panel</a>
+                        <a href="${Base_URL}admin/bookings" style="background: #011CCD; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px;">View in Admin Panel</a>
                     </div>
                 </div>`
         });
@@ -287,6 +212,7 @@ export const sendBookingNotificationToAdmin = async (owner, buyer, unit, booking
         return false;
     }
 };
+
 // =============================
 // SEND PASSWORD RESET EMAIL
 // =============================
@@ -361,7 +287,7 @@ export const sendHostApprovalEmail = async (userData) => {
                         <li>✓ Earn money from your property</li>
                     </ul>
                     <div style="text-align: center; margin: 30px 0;">
-                        <a href="http://localhost:5173/owner/dashboard" 
+                        <a href="${Base_URL}owner/dashboard" 
                            style="background: #011CCD; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
                             Go to Host Dashboard
                         </a>
@@ -395,7 +321,7 @@ export const sendHostRejectionEmail = async (userData) => {
                     <p><strong>Reason:</strong> ${userData.reason || 'Information provided does not meet our requirements'}</p>
                     <p>You can reapply after addressing the above concerns.</p>
                     <div style="text-align: center; margin: 30px 0;">
-                        <a href="http://localhost:5173/become-host" 
+                        <a href="${Base_URL}become-host" 
                            style="background: #011CCD; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
                             Reapply
                         </a>

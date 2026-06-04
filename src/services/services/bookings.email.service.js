@@ -8,7 +8,7 @@ dotenv.config();
 let transporter = null;
 
 const initializeTransporter = () => {
-    if (!transporter) {
+    if (!transporter) { 
         transporter = nodemailer.createTransport({
             host: 'smtp.gmail.com',
             port: 465,
