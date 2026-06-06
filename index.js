@@ -60,14 +60,14 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Create HTTP Server for Socket.IO
-const httpServer = http.createServer(app);
-
 // Middleware
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
-app.use(cors());
+app.use(cors({
+    origin: ['http://localhost:5173', 'https://cozones.netlify.app'],
+    credentials: true,
+}));
 
 // Routes
 app.use('/api/auth', routes);
@@ -83,18 +83,28 @@ app.get('/', (req, res) => {
     res.send('Hello World!');
 });
 
-// Initialize Socket.IO
-const io = initSocket(httpServer);
-
-// Make io available in controllers
-app.set('io', io);
-
 // Connect Database
 connectDB();
 
-// Start Server
-httpServer.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+// Conditional Socket.IO initialization (only for local development)
+let server;
+if (process.env.NODE_ENV !== 'production') {
+    // Create HTTP Server for Socket.IO (only in development)
+    const httpServer = http.createServer(app);
+    const io = initSocket(httpServer);
+    app.set('io', io);
+    server = httpServer;
+} else {
+    // In production, just use the app without Socket.IO
+    server = app;
+}
 
-export { app, httpServer };
+// Start Server only if not in Vercel serverless environment
+if (process.env.NODE_ENV !== 'production') {
+    server.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
+}
+
+// ✅ Correct export for Vercel (serverless)
+export default app;
