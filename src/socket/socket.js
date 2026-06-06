@@ -11,7 +11,7 @@ const onlineUsers = new Map();
 export const initSocket = (httpServer) => {
     const io = new Server(httpServer, {
         cors: {
-            origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+            origin: process.env.FRONTEND_URL || 'https://cozones.netlify.app/',
             methods: ['GET', 'POST'],
             credentials: true,
         },
