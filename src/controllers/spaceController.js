@@ -2211,8 +2211,75 @@ export const getOpenDesks = async (req, res) => {
 // GET ALL DEDICATED DESKS
 // GET /api/spaces/unit/dedicated_desks
 // =============================
+// export const getDedicatedDesks = async (req, res) => {
+//   try {
+//     const result = await pool.query(
+//       `SELECT 
+//         u.id, u.space_id, u.unit_type, u.name, u.total_capacity,
+//         u.hourly_rate, u.daily_rate, u.monthly_rate,
+//         u.duration, u.is_active, u.created_at, u.updated_at,
+//         s.name as space_name, s.city, s.address, s.is_verified,
+//         COALESCE(
+//           (SELECT json_agg(
+//             json_build_object(
+//               'id', ui.id,
+//               'image_base64', ui.image_base64,
+//               'display_order', ui.display_order,
+//               'is_primary', ui.is_primary
+//             ) ORDER BY ui.display_order
+//           ) FROM unit_images ui WHERE ui.unit_id = u.id),
+//           '[]'::json
+//         ) as images
+//       FROM space_units u
+//       JOIN spaces s ON u.space_id = s.id
+//       WHERE u.unit_type = 'dedicated_desk' AND u.is_active = true AND s.is_active = true
+//       ORDER BY u.created_at DESC
+//       LIMIT 50`
+//     );
+
+//     const formattedUnits = result.rows.map(unit => ({
+//       id: unit.id,
+//       space_id: unit.space_id,
+//       unit_type: unit.unit_type,
+//       name: unit.name,
+//       space_name: unit.space_name,
+//       city: unit.city,
+//       address: unit.address,
+//       total_capacity: unit.total_capacity ? parseInt(unit.total_capacity) : null,
+//       hourly_rate: unit.hourly_rate ? parseFloat(unit.hourly_rate) : null,
+//       daily_rate: unit.daily_rate ? parseFloat(unit.daily_rate) : 0,
+//       monthly_rate: unit.monthly_rate ? parseFloat(unit.monthly_rate) : null,
+//       images: unit.images || [],
+//       duration: unit.duration,
+//       is_active: unit.is_active,
+//       is_verified: unit.is_verified,
+//       created_at: unit.created_at,
+//       updated_at: unit.updated_at
+//     }));
+
+//     return res.status(200).json({
+//       success: true,
+//       unit_type: "dedicated_desk",
+//       display_name: "Dedicated Desks",
+//       total_count: formattedUnits.length,
+//       units: formattedUnits
+//     });
+
+//   } catch (error) {
+//     console.error("getDedicatedDesks error:", error.message);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//       error: error.message
+//     });
+//   }
+// };
+
+
+
 export const getDedicatedDesks = async (req, res) => {
   try {
+    // ✅ Return ALL units - let frontend handle deduplication
     const result = await pool.query(
       `SELECT 
         u.id, u.space_id, u.unit_type, u.name, u.total_capacity,
@@ -2257,12 +2324,14 @@ export const getDedicatedDesks = async (req, res) => {
       updated_at: unit.updated_at
     }));
 
+    console.log(`📊 getDedicatedDesks: Returning ${formattedUnits.length} total units`);
+
     return res.status(200).json({
       success: true,
       unit_type: "dedicated_desk",
       display_name: "Dedicated Desks",
       total_count: formattedUnits.length,
-      units: formattedUnits
+      units: formattedUnits  // ALL units returned
     });
 
   } catch (error) {
@@ -2275,12 +2344,77 @@ export const getDedicatedDesks = async (req, res) => {
   }
 };
 
+
 // =============================
 // GET ALL PRIVATE CABINS
 // GET /api/spaces/unit/private_cabins
 // =============================
+// export const getPrivateCabins = async (req, res) => {
+//   try {
+//     const result = await pool.query(
+//       `SELECT 
+//         u.id, u.space_id, u.unit_type, u.name, u.total_capacity,
+//         u.hourly_rate, u.daily_rate, u.monthly_rate,
+//         u.duration, u.is_active, u.created_at, u.updated_at,
+//         s.name as space_name, s.city, s.address, s.is_verified,
+//         COALESCE(
+//           (SELECT json_agg(
+//             json_build_object(
+//               'id', ui.id,
+//               'image_base64', ui.image_base64,
+//               'display_order', ui.display_order,
+//               'is_primary', ui.is_primary
+//             ) ORDER BY ui.display_order
+//           ) FROM unit_images ui WHERE ui.unit_id = u.id),
+//           '[]'::json
+//         ) as images
+//       FROM space_units u
+//       JOIN spaces s ON u.space_id = s.id
+//       WHERE u.unit_type = 'private_cabin' AND u.is_active = true AND s.is_active = true
+//       ORDER BY u.created_at DESC
+//       LIMIT 50`
+//     );
+
+//     const formattedUnits = result.rows.map(unit => ({
+//       id: unit.id,
+//       space_id: unit.space_id,
+//       unit_type: unit.unit_type,
+//       name: unit.name || unit.space_name,
+//       space_name: unit.space_name,
+//       city: unit.city,
+//       address: unit.address,
+//       total_capacity: unit.total_capacity ? parseInt(unit.total_capacity) : null,
+//       hourly_rate: unit.hourly_rate ? parseFloat(unit.hourly_rate) : null,
+//       daily_rate: unit.daily_rate ? parseFloat(unit.daily_rate) : 0,
+//       monthly_rate: unit.monthly_rate ? parseFloat(unit.monthly_rate) : null,
+//       images: unit.images || [],
+//       duration: unit.duration,
+//       is_active: unit.is_active,
+//       is_verified: unit.is_verified,
+//       created_at: unit.created_at,
+//       updated_at: unit.updated_at
+//     }));
+
+//     return res.status(200).json({
+//       success: true,
+//       unit_type: "private_cabin",
+//       display_name: "Private Cabins",
+//       total_count: formattedUnits.length,
+//       units: formattedUnits
+//     });
+
+//   } catch (error) {
+//     console.error("getPrivateCabins error:", error.message);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//       error: error.message
+//     });
+//   }
+// };
 export const getPrivateCabins = async (req, res) => {
   try {
+    // ✅ Return ALL units - let frontend handle deduplication
     const result = await pool.query(
       `SELECT 
         u.id, u.space_id, u.unit_type, u.name, u.total_capacity,
@@ -2325,12 +2459,14 @@ export const getPrivateCabins = async (req, res) => {
       updated_at: unit.updated_at
     }));
 
+    console.log(`📊 getPrivateCabins: Returning ${formattedUnits.length} total units`);
+
     return res.status(200).json({
       success: true,
       unit_type: "private_cabin",
       display_name: "Private Cabins",
       total_count: formattedUnits.length,
-      units: formattedUnits
+      units: formattedUnits  // ALL units returned
     });
 
   } catch (error) {
@@ -2342,6 +2478,10 @@ export const getPrivateCabins = async (req, res) => {
     });
   }
 };
+
+
+
+
 
 // =============================
 // GET ALL MEETING ROOMS
