@@ -2155,63 +2155,6 @@ export const deleteUnit = async (req, res) => {
 // GET ALL OPEN DESKS
 // GET /api/spaces/unit/open_desks
 // =============================
-// export const getOpenDesks = async (req, res) => {
-//   try {
-//     const result = await pool.query(
-//       `SELECT 
-//         u.id, u.space_id, u.unit_type, u.name, u.total_capacity,
-//         u.hourly_rate, u.daily_rate, u.monthly_rate,
-//         u.duration, u.is_active, u.created_at, u.updated_at,
-//         s.name as space_name, s.city, s.address, s.is_verified,
-//         COALESCE(
-//           (SELECT json_agg(
-//             json_build_object(
-//               'id', ui.id,
-//               'image_base64', ui.image_base64,
-//               'display_order', ui.display_order,
-//               'is_primary', ui.is_primary
-//             ) ORDER BY ui.display_order
-//           ) FROM unit_images ui WHERE ui.unit_id = u.id),
-//           '[]'::json
-//         ) as images
-//       FROM space_units u
-//       JOIN spaces s ON u.space_id = s.id
-//       WHERE u.unit_type = 'open_desk' AND u.is_active = true AND s.is_active = true
-//       ORDER BY u.created_at DESC
-//       LIMIT 50`
-//     );
-
-//     const formattedUnits = result.rows.map(unit => ({
-//       ...unit,
-//       hourly_rate: unit.hourly_rate ? parseFloat(unit.hourly_rate) : null,
-//       daily_rate: parseFloat(unit.daily_rate),
-//       monthly_rate: unit.monthly_rate ? parseFloat(unit.monthly_rate) : null,
-//       total_capacity: parseInt(unit.total_capacity)
-//     }));
-
-//     return res.status(200).json({
-//       success: true,
-//       unit_type: "open_desk",
-//       display_name: "Open Desks",
-//       total_count: formattedUnits.length,
-//       units: formattedUnits
-//     });
-
-//   } catch (error) {
-//     console.error("getOpenDesks error:", error.message);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Server error",
-//       error: error.message
-//     });
-//   }
-// };
-
-
-
-
-
-
 
 export const getOpenDesks = async (req, res) => {
   try {
@@ -2367,29 +2310,58 @@ export const getOpenDesks = async (req, res) => {
 
 export const getDedicatedDesks = async (req, res) => {
   try {
-    // ✅ Return ALL units - let frontend handle deduplication
+    // Get pagination parameters from query
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5; // Default 5 items per page
+    const offset = (page - 1) * limit;
+
+    // First, get total count
+    const countResult = await pool.query(
+      `SELECT COUNT(*) as total 
+       FROM space_units u
+       JOIN spaces s ON u.space_id = s.id
+       WHERE u.unit_type = 'dedicated_desk' 
+         AND u.is_active = true 
+         AND s.is_active = true`
+    );
+
+    const totalCount = parseInt(countResult.rows[0].total);
+
+    // Get paginated data with ONLY ONE image (primary or first)
     const result = await pool.query(
       `SELECT 
         u.id, u.space_id, u.unit_type, u.name, u.total_capacity,
         u.hourly_rate, u.daily_rate, u.monthly_rate,
         u.duration, u.is_active, u.created_at, u.updated_at,
         s.name as space_name, s.city, s.address, s.is_verified,
+        -- Get only the first/primary image
         COALESCE(
-          (SELECT json_agg(
-            json_build_object(
-              'id', ui.id,
-              'image_base64', ui.image_base64,
-              'display_order', ui.display_order,
-              'is_primary', ui.is_primary
-            ) ORDER BY ui.display_order
-          ) FROM unit_images ui WHERE ui.unit_id = u.id),
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', ui.id,
+                'image_base64', ui.image_base64,
+                'display_order', ui.display_order,
+                'is_primary', ui.is_primary
+              )
+            )
+            FROM (
+              SELECT * FROM unit_images 
+              WHERE unit_id = u.id 
+              ORDER BY is_primary DESC, display_order ASC 
+              LIMIT 1
+            ) ui
+          ),
           '[]'::json
         ) as images
       FROM space_units u
       JOIN spaces s ON u.space_id = s.id
-      WHERE u.unit_type = 'dedicated_desk' AND u.is_active = true AND s.is_active = true
+      WHERE u.unit_type = 'dedicated_desk' 
+        AND u.is_active = true 
+        AND s.is_active = true
       ORDER BY u.created_at DESC
-      LIMIT 50`
+      LIMIT $1 OFFSET $2`,
+      [limit, offset]
     );
 
     const formattedUnits = result.rows.map(unit => ({
@@ -2404,7 +2376,7 @@ export const getDedicatedDesks = async (req, res) => {
       hourly_rate: unit.hourly_rate ? parseFloat(unit.hourly_rate) : null,
       daily_rate: unit.daily_rate ? parseFloat(unit.daily_rate) : 0,
       monthly_rate: unit.monthly_rate ? parseFloat(unit.monthly_rate) : null,
-      images: unit.images || [],
+      images: unit.images || [], // Now contains only 1 image
       duration: unit.duration,
       is_active: unit.is_active,
       is_verified: unit.is_verified,
@@ -2412,14 +2384,17 @@ export const getDedicatedDesks = async (req, res) => {
       updated_at: unit.updated_at
     }));
 
-    console.log(`📊 getDedicatedDesks: Returning ${formattedUnits.length} total units`);
+    console.log(`📊 getDedicatedDesks: Page ${page} returning ${formattedUnits.length} of ${totalCount} units`);
 
     return res.status(200).json({
       success: true,
       unit_type: "dedicated_desk",
       display_name: "Dedicated Desks",
-      total_count: formattedUnits.length,
-      units: formattedUnits  // ALL units returned
+      total_count: totalCount,
+      page: page,
+      limit: limit,
+      total_pages: Math.ceil(totalCount / limit),
+      units: formattedUnits
     });
 
   } catch (error) {
@@ -2437,94 +2412,61 @@ export const getDedicatedDesks = async (req, res) => {
 // GET ALL PRIVATE CABINS
 // GET /api/spaces/unit/private_cabins
 // =============================
-// export const getPrivateCabins = async (req, res) => {
-//   try {
-//     const result = await pool.query(
-//       `SELECT 
-//         u.id, u.space_id, u.unit_type, u.name, u.total_capacity,
-//         u.hourly_rate, u.daily_rate, u.monthly_rate,
-//         u.duration, u.is_active, u.created_at, u.updated_at,
-//         s.name as space_name, s.city, s.address, s.is_verified,
-//         COALESCE(
-//           (SELECT json_agg(
-//             json_build_object(
-//               'id', ui.id,
-//               'image_base64', ui.image_base64,
-//               'display_order', ui.display_order,
-//               'is_primary', ui.is_primary
-//             ) ORDER BY ui.display_order
-//           ) FROM unit_images ui WHERE ui.unit_id = u.id),
-//           '[]'::json
-//         ) as images
-//       FROM space_units u
-//       JOIN spaces s ON u.space_id = s.id
-//       WHERE u.unit_type = 'private_cabin' AND u.is_active = true AND s.is_active = true
-//       ORDER BY u.created_at DESC
-//       LIMIT 50`
-//     );
 
-//     const formattedUnits = result.rows.map(unit => ({
-//       id: unit.id,
-//       space_id: unit.space_id,
-//       unit_type: unit.unit_type,
-//       name: unit.name || unit.space_name,
-//       space_name: unit.space_name,
-//       city: unit.city,
-//       address: unit.address,
-//       total_capacity: unit.total_capacity ? parseInt(unit.total_capacity) : null,
-//       hourly_rate: unit.hourly_rate ? parseFloat(unit.hourly_rate) : null,
-//       daily_rate: unit.daily_rate ? parseFloat(unit.daily_rate) : 0,
-//       monthly_rate: unit.monthly_rate ? parseFloat(unit.monthly_rate) : null,
-//       images: unit.images || [],
-//       duration: unit.duration,
-//       is_active: unit.is_active,
-//       is_verified: unit.is_verified,
-//       created_at: unit.created_at,
-//       updated_at: unit.updated_at
-//     }));
-
-//     return res.status(200).json({
-//       success: true,
-//       unit_type: "private_cabin",
-//       display_name: "Private Cabins",
-//       total_count: formattedUnits.length,
-//       units: formattedUnits
-//     });
-
-//   } catch (error) {
-//     console.error("getPrivateCabins error:", error.message);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Server error",
-//       error: error.message
-//     });
-//   }
-// };
 export const getPrivateCabins = async (req, res) => {
   try {
-    // ✅ Return ALL units - let frontend handle deduplication
+    // Get pagination parameters from query
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5; // Default 5 items per page
+    const offset = (page - 1) * limit;
+
+    // First, get total count
+    const countResult = await pool.query(
+      `SELECT COUNT(*) as total 
+       FROM space_units u
+       JOIN spaces s ON u.space_id = s.id
+       WHERE u.unit_type = 'private_cabin' 
+         AND u.is_active = true 
+         AND s.is_active = true`
+    );
+
+    const totalCount = parseInt(countResult.rows[0].total);
+
+    // Get paginated data with ONLY ONE image (primary or first)
     const result = await pool.query(
       `SELECT 
         u.id, u.space_id, u.unit_type, u.name, u.total_capacity,
         u.hourly_rate, u.daily_rate, u.monthly_rate,
         u.duration, u.is_active, u.created_at, u.updated_at,
         s.name as space_name, s.city, s.address, s.is_verified,
+        -- Get only the first/primary image
         COALESCE(
-          (SELECT json_agg(
-            json_build_object(
-              'id', ui.id,
-              'image_base64', ui.image_base64,
-              'display_order', ui.display_order,
-              'is_primary', ui.is_primary
-            ) ORDER BY ui.display_order
-          ) FROM unit_images ui WHERE ui.unit_id = u.id),
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', ui.id,
+                'image_base64', ui.image_base64,
+                'display_order', ui.display_order,
+                'is_primary', ui.is_primary
+              )
+            )
+            FROM (
+              SELECT * FROM unit_images 
+              WHERE unit_id = u.id 
+              ORDER BY is_primary DESC, display_order ASC 
+              LIMIT 1
+            ) ui
+          ),
           '[]'::json
         ) as images
       FROM space_units u
       JOIN spaces s ON u.space_id = s.id
-      WHERE u.unit_type = 'private_cabin' AND u.is_active = true AND s.is_active = true
+      WHERE u.unit_type = 'private_cabin' 
+        AND u.is_active = true 
+        AND s.is_active = true
       ORDER BY u.created_at DESC
-      LIMIT 50`
+      LIMIT $1 OFFSET $2`,
+      [limit, offset]
     );
 
     const formattedUnits = result.rows.map(unit => ({
@@ -2539,7 +2481,7 @@ export const getPrivateCabins = async (req, res) => {
       hourly_rate: unit.hourly_rate ? parseFloat(unit.hourly_rate) : null,
       daily_rate: unit.daily_rate ? parseFloat(unit.daily_rate) : 0,
       monthly_rate: unit.monthly_rate ? parseFloat(unit.monthly_rate) : null,
-      images: unit.images || [],
+      images: unit.images || [], // Now contains only 1 image
       duration: unit.duration,
       is_active: unit.is_active,
       is_verified: unit.is_verified,
@@ -2547,14 +2489,17 @@ export const getPrivateCabins = async (req, res) => {
       updated_at: unit.updated_at
     }));
 
-    console.log(`📊 getPrivateCabins: Returning ${formattedUnits.length} total units`);
+    console.log(`📊 getPrivateCabins: Page ${page} returning ${formattedUnits.length} of ${totalCount} units`);
 
     return res.status(200).json({
       success: true,
       unit_type: "private_cabin",
       display_name: "Private Cabins",
-      total_count: formattedUnits.length,
-      units: formattedUnits  // ALL units returned
+      total_count: totalCount,
+      page: page,
+      limit: limit,
+      total_pages: Math.ceil(totalCount / limit),
+      units: formattedUnits
     });
 
   } catch (error) {
@@ -2569,36 +2514,65 @@ export const getPrivateCabins = async (req, res) => {
 
 
 
-
-
 // =============================
 // GET ALL MEETING ROOMS
 // GET /api/spaces/unit/meeting_rooms
 // =============================
+
 export const getMeetingRooms = async (req, res) => {
   try {
+    // Get pagination parameters from query
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5; // Default 5 items per page
+    const offset = (page - 1) * limit;
+
+    // First, get total count
+    const countResult = await pool.query(
+      `SELECT COUNT(*) as total 
+       FROM space_units u
+       JOIN spaces s ON u.space_id = s.id
+       WHERE u.unit_type = 'meeting_room' 
+         AND u.is_active = true 
+         AND s.is_active = true`
+    );
+
+    const totalCount = parseInt(countResult.rows[0].total);
+
+    // Get paginated data with ONLY ONE image (primary or first)
     const result = await pool.query(
       `SELECT 
         u.id, u.space_id, u.unit_type, u.name, u.total_capacity,
         u.hourly_rate, u.daily_rate, u.monthly_rate,
         u.duration, u.is_active, u.created_at, u.updated_at,
         s.name as space_name, s.city, s.address, s.is_verified,
+        -- Get only the first/primary image
         COALESCE(
-          (SELECT json_agg(
-            json_build_object(
-              'id', ui.id,
-              'image_base64', ui.image_base64,
-              'display_order', ui.display_order,
-              'is_primary', ui.is_primary
-            ) ORDER BY ui.display_order
-          ) FROM unit_images ui WHERE ui.unit_id = u.id),
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', ui.id,
+                'image_base64', ui.image_base64,
+                'display_order', ui.display_order,
+                'is_primary', ui.is_primary
+              )
+            )
+            FROM (
+              SELECT * FROM unit_images 
+              WHERE unit_id = u.id 
+              ORDER BY is_primary DESC, display_order ASC 
+              LIMIT 1
+            ) ui
+          ),
           '[]'::json
         ) as images
       FROM space_units u
       JOIN spaces s ON u.space_id = s.id
-      WHERE u.unit_type = 'meeting_room' AND u.is_active = true AND s.is_active = true
+      WHERE u.unit_type = 'meeting_room' 
+        AND u.is_active = true 
+        AND s.is_active = true
       ORDER BY u.created_at DESC
-      LIMIT 50`
+      LIMIT $1 OFFSET $2`,
+      [limit, offset]
     );
 
     const formattedUnits = result.rows.map(unit => ({
@@ -2613,7 +2587,7 @@ export const getMeetingRooms = async (req, res) => {
       hourly_rate: unit.hourly_rate ? parseFloat(unit.hourly_rate) : null,
       daily_rate: unit.daily_rate ? parseFloat(unit.daily_rate) : 0,
       monthly_rate: unit.monthly_rate ? parseFloat(unit.monthly_rate) : null,
-      images: unit.images || [],
+      images: unit.images || [], // Now contains only 1 image
       duration: unit.duration,
       is_active: unit.is_active,
       is_verified: unit.is_verified,
@@ -2621,11 +2595,16 @@ export const getMeetingRooms = async (req, res) => {
       updated_at: unit.updated_at
     }));
 
+    console.log(`📊 getMeetingRooms: Page ${page} returning ${formattedUnits.length} of ${totalCount} units`);
+
     return res.status(200).json({
       success: true,
       unit_type: "meeting_room",
       display_name: "Meeting Rooms",
-      total_count: formattedUnits.length,
+      total_count: totalCount,
+      page: page,
+      limit: limit,
+      total_pages: Math.ceil(totalCount / limit),
       units: formattedUnits
     });
 
@@ -2638,6 +2617,7 @@ export const getMeetingRooms = async (req, res) => {
     });
   }
 };
+
 
 // =============================
 // GET SINGLE UNIT DETAILS
