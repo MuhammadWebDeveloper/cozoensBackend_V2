@@ -1,4 +1,4 @@
-import pool from '../config/db.config.js';
+import { pool } from '../config/db.config.js'; // ✅ Named import with curly braces
 
 const SearchSpaces = async (req, res) => {
     try {
