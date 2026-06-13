@@ -2155,30 +2155,111 @@ export const deleteUnit = async (req, res) => {
 // GET ALL OPEN DESKS
 // GET /api/spaces/unit/open_desks
 // =============================
+// export const getOpenDesks = async (req, res) => {
+//   try {
+//     const result = await pool.query(
+//       `SELECT 
+//         u.id, u.space_id, u.unit_type, u.name, u.total_capacity,
+//         u.hourly_rate, u.daily_rate, u.monthly_rate,
+//         u.duration, u.is_active, u.created_at, u.updated_at,
+//         s.name as space_name, s.city, s.address, s.is_verified,
+//         COALESCE(
+//           (SELECT json_agg(
+//             json_build_object(
+//               'id', ui.id,
+//               'image_base64', ui.image_base64,
+//               'display_order', ui.display_order,
+//               'is_primary', ui.is_primary
+//             ) ORDER BY ui.display_order
+//           ) FROM unit_images ui WHERE ui.unit_id = u.id),
+//           '[]'::json
+//         ) as images
+//       FROM space_units u
+//       JOIN spaces s ON u.space_id = s.id
+//       WHERE u.unit_type = 'open_desk' AND u.is_active = true AND s.is_active = true
+//       ORDER BY u.created_at DESC
+//       LIMIT 50`
+//     );
+
+//     const formattedUnits = result.rows.map(unit => ({
+//       ...unit,
+//       hourly_rate: unit.hourly_rate ? parseFloat(unit.hourly_rate) : null,
+//       daily_rate: parseFloat(unit.daily_rate),
+//       monthly_rate: unit.monthly_rate ? parseFloat(unit.monthly_rate) : null,
+//       total_capacity: parseInt(unit.total_capacity)
+//     }));
+
+//     return res.status(200).json({
+//       success: true,
+//       unit_type: "open_desk",
+//       display_name: "Open Desks",
+//       total_count: formattedUnits.length,
+//       units: formattedUnits
+//     });
+
+//   } catch (error) {
+//     console.error("getOpenDesks error:", error.message);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//       error: error.message
+//     });
+//   }
+// };
+
+
+
+
+
+
+
 export const getOpenDesks = async (req, res) => {
   try {
+    // Get pagination parameters from query
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5; // Default 5 items per page
+    const offset = (page - 1) * limit;
+
+    // First, get total count
+    const countResult = await pool.query(
+      `SELECT COUNT(*) as total 
+       FROM space_units u
+       JOIN spaces s ON u.space_id = s.id
+       WHERE u.unit_type = 'open_desk' 
+         AND u.is_active = true 
+         AND s.is_active = true`
+    );
+
+    const totalCount = parseInt(countResult.rows[0].total);
+
+    // Then get paginated data with ONLY FIRST/Primary IMAGE
     const result = await pool.query(
       `SELECT 
         u.id, u.space_id, u.unit_type, u.name, u.total_capacity,
         u.hourly_rate, u.daily_rate, u.monthly_rate,
         u.duration, u.is_active, u.created_at, u.updated_at,
         s.name as space_name, s.city, s.address, s.is_verified,
-        COALESCE(
-          (SELECT json_agg(
-            json_build_object(
-              'id', ui.id,
-              'image_base64', ui.image_base64,
-              'display_order', ui.display_order,
-              'is_primary', ui.is_primary
-            ) ORDER BY ui.display_order
-          ) FROM unit_images ui WHERE ui.unit_id = u.id),
-          '[]'::json
-        ) as images
+        -- Get only the first/primary image (ordered by is_primary DESC and display_order)
+        (
+          SELECT json_build_object(
+            'id', ui.id,
+            'image_base64', ui.image_base64,
+            'display_order', ui.display_order,
+            'is_primary', ui.is_primary
+          )
+          FROM unit_images ui 
+          WHERE ui.unit_id = u.id 
+          ORDER BY ui.is_primary DESC, ui.display_order ASC 
+          LIMIT 1
+        ) as primary_image
       FROM space_units u
       JOIN spaces s ON u.space_id = s.id
-      WHERE u.unit_type = 'open_desk' AND u.is_active = true AND s.is_active = true
+      WHERE u.unit_type = 'open_desk' 
+        AND u.is_active = true 
+        AND s.is_active = true
       ORDER BY u.created_at DESC
-      LIMIT 50`
+      LIMIT $1 OFFSET $2`,
+      [limit, offset]
     );
 
     const formattedUnits = result.rows.map(unit => ({
@@ -2186,15 +2267,23 @@ export const getOpenDesks = async (req, res) => {
       hourly_rate: unit.hourly_rate ? parseFloat(unit.hourly_rate) : null,
       daily_rate: parseFloat(unit.daily_rate),
       monthly_rate: unit.monthly_rate ? parseFloat(unit.monthly_rate) : null,
-      total_capacity: parseInt(unit.total_capacity)
+      total_capacity: parseInt(unit.total_capacity),
+      // Transform primary_image to match frontend expected format
+      images: unit.primary_image ? [unit.primary_image] : [] // Frontend expects array
     }));
+
+    // Remove the raw primary_image from response to avoid duplication
+    const cleanedUnits = formattedUnits.map(({ primary_image, ...rest }) => rest);
 
     return res.status(200).json({
       success: true,
       unit_type: "open_desk",
       display_name: "Open Desks",
-      total_count: formattedUnits.length,
-      units: formattedUnits
+      total_count: totalCount,
+      page: page,
+      limit: limit,
+      total_pages: Math.ceil(totalCount / limit),
+      units: cleanedUnits
     });
 
   } catch (error) {
@@ -2206,7 +2295,6 @@ export const getOpenDesks = async (req, res) => {
     });
   }
 };
-
 // =============================
 // GET ALL DEDICATED DESKS
 // GET /api/spaces/unit/dedicated_desks
