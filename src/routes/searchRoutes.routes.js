@@ -1,7 +1,7 @@
 
-import exptess from 'express';
-import { searchSpaces } from '../controllers/search.Controller';
+import SearchSpaces from '../controllers/search.Controller.js';
+import express from 'express';
 const SearchRoute = express.Router();
-SearchRoute.get('/search', searchSpaces);
+SearchRoute.get('/search', SearchSpaces);
 
 export default SearchRoute;                         

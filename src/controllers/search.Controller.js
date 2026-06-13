@@ -1,6 +1,6 @@
-const pool = require('../config/db.config.js'); // adjust path to your pg pool
+import pool from '../config/db.config.js';
 
-const searchSpaces = async (req, res) => {
+const SearchSpaces = async (req, res) => {
     try {
         const { destination, type } = req.query;
 
@@ -71,4 +71,4 @@ const searchSpaces = async (req, res) => {
     }
 };
 
-module.exports = { searchSpaces };
+export default SearchSpaces;
