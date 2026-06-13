@@ -54,6 +54,7 @@ import Hostrouter from './src/routes/hostRequest.routes.js';
 // import chatRoutes from './src/routes/chat.routes.js';
 import { initSocket } from './src/socket/socket.js';
 import chatRouter from './src/routes/chat.routes.js';
+import SearchRoute from './src/routes/searchRoutes.routes.js';
 
 dotenv.config();
 
@@ -63,6 +64,7 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+app.use('/api/spaces', SearchRoute);
 
 app.use(cors({
     origin: ['http://localhost:5173', 'https://cozones.netlify.app'],
