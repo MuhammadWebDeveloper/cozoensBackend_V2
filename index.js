@@ -76,7 +76,7 @@ app.use('/api/spaces', spacesRoutes);
 app.use('/api/favorites', favoritesroutes);
 app.use('/api/bookings', Bookingroutes);
 app.use('/api/host-requests', Hostrouter);
-app.use('/api/spaces', SearchRoute);
+app.use('/api/search', SearchRoute);
 
 // NEW Chat Routes
 app.use('/api/chats', chatRouter);

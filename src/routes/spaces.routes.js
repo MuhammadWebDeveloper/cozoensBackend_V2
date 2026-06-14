@@ -49,13 +49,13 @@ spacesRoutes.get("/unit/open_desks", getOpenDesks);
 spacesRoutes.get("/unit/open_desks/:unitId", getopendeskUnitImages);
 
 spacesRoutes.get("/unit/dedicated_desks", getDedicatedDesks);
-spacesRoutes.get("/unit/dedicated_desks/:unitId", getDedicatedDeskImages);
+spacesRoutes.get("/unit/dedicated_desks/:id", getDedicatedDeskImages);
 
 spacesRoutes.get("/unit/private_cabins", getPrivateCabins);
-spacesRoutes.get("/unit/private_cabins/:unitId", getPrivateCabinImages);
+spacesRoutes.get("/unit/private_cabins/:id", getPrivateCabinImages);
 
 spacesRoutes.get("/unit/meeting_rooms", getMeetingRooms);
-spacesRoutes.get("/unit/meeting_rooms/:unitId", getMeetingRoomImages);
+spacesRoutes.get("/unit/meeting_rooms/:id", getMeetingRoomImages);
 
 spacesRoutes.get('/unit/:unitId', getUnitDetails);
 spacesRoutes.get('/unit/:unitId/images', getUnitImages);
