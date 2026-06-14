@@ -45,8 +45,8 @@ spacesRoutes.get("/unit/open_desks", getOpenDesks);
 spacesRoutes.get("/unit/dedicated_desks", getDedicatedDesks);
 spacesRoutes.get("/unit/private_cabins", getPrivateCabins);
 spacesRoutes.get("/unit/meeting_rooms", getMeetingRooms);
-spacesRoutes.get('unit/:unitId', getUnitDetails);
-spacesRoutes.get('unit/:unitId/images', getUnitImages);
+spacesRoutes.get('/unit/:unitId', getUnitDetails);
+spacesRoutes.get('/unit/:unitId/images', getUnitImages);
 // Unit routes (nested under spaces)
 // spacesRoutes.get("/unit/:unitId", getUnitDetails);
 
