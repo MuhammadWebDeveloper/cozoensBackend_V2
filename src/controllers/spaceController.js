@@ -2684,10 +2684,175 @@ export const getMeetingRooms = async (req, res) => {
 // };
 
 
+// export const getUnitDetails = async (req, res) => {
+//   try {
+//     const { unitId } = req.params;
+
+//     const result = await pool.query(
+//       `SELECT 
+//         u.id, u.space_id, u.unit_type, u.name, u.total_capacity,
+//         u.hourly_rate, u.daily_rate, u.monthly_rate,
+//         u.duration, u.is_active, u.created_at, u.updated_at,
+//         s.name as space_name, s.description as space_description,
+//         s.address, s.city, s.area, s.latitude, s.longitude,
+//         s.opening_time, s.closing_time, s.working_days,
+//         s.has_wifi, s.has_ac, s.has_coffee, s.has_printer,
+//         s.has_parking, s.has_security, s.has_backup_power,
+//         s.owner_id,
+//         s.cancellation_policy, s.refund_policy, s.late_arrival_policy,
+//         s.is_verified,
+//         COALESCE(
+//           (SELECT json_agg(
+//             json_build_object(
+//               'id', ui.id,
+//               'image_base64', ui.image_base64,
+//               'display_order', ui.display_order,
+//               'is_primary', ui.is_primary
+//             ) ORDER BY ui.display_order
+//           ) FROM unit_images ui WHERE ui.unit_id = u.id),
+//           '[]'::json
+//         ) as images
+//       FROM space_units u
+//       JOIN spaces s ON u.space_id = s.id
+//       WHERE u.id = $1 AND u.is_active = true AND s.is_active = true`,
+//       [unitId]
+//     );
+
+//     if (result.rows.length === 0) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Unit not found"
+//       });
+//     }
+
+//     const row = result.rows[0];
+
+//     // Parse numeric values
+//     if (row.hourly_rate) row.hourly_rate = parseFloat(row.hourly_rate);
+//     if (row.daily_rate) row.daily_rate = parseFloat(row.daily_rate);
+//     if (row.monthly_rate) row.monthly_rate = parseFloat(row.monthly_rate);
+//     if (row.total_capacity) row.total_capacity = parseInt(row.total_capacity);
+
+//     // Build response with BOTH flattened AND nested structure
+//     const response = {
+//       success: true,
+//       unit: {
+//         // Flattened fields (for backward compatibility with your new code)
+//         id: row.id,
+//         space_id: row.space_id,
+//         unit_type: row.unit_type,
+//         name: row.name,
+//         total_capacity: row.total_capacity,
+//         hourly_rate: row.hourly_rate,
+//         daily_rate: row.daily_rate,
+//         monthly_rate: row.monthly_rate,
+//         duration: row.duration,
+//         is_active: row.is_active,
+//         created_at: row.created_at,
+//         updated_at: row.updated_at,
+
+//         // Flattened space fields
+//         space_name: row.space_name,
+//         space_description: row.space_description,
+//         address: row.address,
+//         city: row.city,
+//         area: row.area,
+//         latitude: row.latitude,
+//         longitude: row.longitude,
+//         opening_time: row.opening_time,
+//         closing_time: row.closing_time,
+//         working_days: row.working_days,
+//         has_wifi: row.has_wifi,
+//         has_ac: row.has_ac,
+//         has_coffee: row.has_coffee,
+//         has_printer: row.has_printer,
+//         has_parking: row.has_parking,
+//         has_security: row.has_security,
+//         has_backup_power: row.has_backup_power,
+//         owner_id: row.owner_id,
+
+//         // Images
+//         images: row.images,
+
+//         // ===== NESTED OBJECTS (for old code compatibility) =====
+//         // Nested space object (what your old code expects)
+//         space: {
+//           id: row.space_id,
+//           name: row.space_name,
+//           description: row.space_description,
+//           city: row.city,
+//           area: row.area,
+//           address: row.address,
+//           latitude: row.latitude,
+//           longitude: row.longitude,
+//           opening_time: row.opening_time,
+//           closing_time: row.closing_time,
+//           working_days: row.working_days,
+//           has_wifi: row.has_wifi,
+//           has_ac: row.has_ac,
+//           has_coffee: row.has_coffee,
+//           has_printer: row.has_printer,
+//           has_parking: row.has_parking,
+//           has_security: row.has_security,
+//           has_backup_power: row.has_backup_power,
+//           is_verified: row.is_verified,
+//           owner_id: row.owner_id,
+//           cancellation_policy: row.cancellation_policy,
+//           refund_policy: row.refund_policy,
+//           late_arrival_policy: row.late_arrival_policy
+//         },
+
+//         // Nested amenities object (for old code)
+//         space_amenities: {
+//           wifi: row.has_wifi,
+//           ac: row.has_ac,
+//           coffee: row.has_coffee,
+//           printer: row.has_printer,
+//           parking: row.has_parking,
+//           security: row.has_security,
+//           backup_power: row.has_backup_power
+//         },
+
+//         // Nested policies object (for old code)
+//         policies: {
+//           cancellation: row.cancellation_policy,
+//           refund: row.refund_policy,
+//           late_arrival: row.late_arrival_policy
+//         },
+
+//         // Display name mapping
+//         display_name: (() => {
+//           switch (row.unit_type) {
+//             case 'open_desk': return 'Open Desk';
+//             case 'dedicated_desk': return 'Dedicated Desk';
+//             case 'private_cabin': return 'Private Cabin';
+//             case 'meeting_room': return 'Meeting Room';
+//             default: return row.unit_type;
+//           }
+//         })()
+//       }
+//     };
+
+//     return res.status(200).json(response);
+
+//   } catch (error) {
+//     console.error("getUnitDetails error:", error.message);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//       error: error.message
+//     });
+//   }
+// };
+
+
+
+// Update your backend - Split images into separate endpoint
 export const getUnitDetails = async (req, res) => {
   try {
     const { unitId } = req.params;
 
+    // Query WITHOUT images (faster response)
     const result = await pool.query(
       `SELECT 
         u.id, u.space_id, u.unit_type, u.name, u.total_capacity,
@@ -2700,18 +2865,8 @@ export const getUnitDetails = async (req, res) => {
         s.has_parking, s.has_security, s.has_backup_power,
         s.owner_id,
         s.cancellation_policy, s.refund_policy, s.late_arrival_policy,
-        s.is_verified,
-        COALESCE(
-          (SELECT json_agg(
-            json_build_object(
-              'id', ui.id,
-              'image_base64', ui.image_base64,
-              'display_order', ui.display_order,
-              'is_primary', ui.is_primary
-            ) ORDER BY ui.display_order
-          ) FROM unit_images ui WHERE ui.unit_id = u.id),
-          '[]'::json
-        ) as images
+        s.is_verified
+        -- REMOVED images from main query
       FROM space_units u
       JOIN spaces s ON u.space_id = s.id
       WHERE u.id = $1 AND u.is_active = true AND s.is_active = true`,
@@ -2733,11 +2888,10 @@ export const getUnitDetails = async (req, res) => {
     if (row.monthly_rate) row.monthly_rate = parseFloat(row.monthly_rate);
     if (row.total_capacity) row.total_capacity = parseInt(row.total_capacity);
 
-    // Build response with BOTH flattened AND nested structure
     const response = {
       success: true,
       unit: {
-        // Flattened fields (for backward compatibility with your new code)
+        // All your existing fields except images
         id: row.id,
         space_id: row.space_id,
         unit_type: row.unit_type,
@@ -2750,8 +2904,6 @@ export const getUnitDetails = async (req, res) => {
         is_active: row.is_active,
         created_at: row.created_at,
         updated_at: row.updated_at,
-
-        // Flattened space fields
         space_name: row.space_name,
         space_description: row.space_description,
         address: row.address,
@@ -2770,12 +2922,8 @@ export const getUnitDetails = async (req, res) => {
         has_security: row.has_security,
         has_backup_power: row.has_backup_power,
         owner_id: row.owner_id,
-
-        // Images
-        images: row.images,
-
-        // ===== NESTED OBJECTS (for old code compatibility) =====
-        // Nested space object (what your old code expects)
+        
+        // Nested objects (same as before)
         space: {
           id: row.space_id,
           name: row.space_name,
@@ -2801,8 +2949,6 @@ export const getUnitDetails = async (req, res) => {
           refund_policy: row.refund_policy,
           late_arrival_policy: row.late_arrival_policy
         },
-
-        // Nested amenities object (for old code)
         space_amenities: {
           wifi: row.has_wifi,
           ac: row.has_ac,
@@ -2812,15 +2958,11 @@ export const getUnitDetails = async (req, res) => {
           security: row.has_security,
           backup_power: row.has_backup_power
         },
-
-        // Nested policies object (for old code)
         policies: {
           cancellation: row.cancellation_policy,
           refund: row.refund_policy,
           late_arrival: row.late_arrival_policy
         },
-
-        // Display name mapping
         display_name: (() => {
           switch (row.unit_type) {
             case 'open_desk': return 'Open Desk';
@@ -2840,6 +2982,42 @@ export const getUnitDetails = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
+      error: error.message
+    });
+  }
+};
+
+// NEW ENDPOINT: Get images separately
+export const getUnitImages = async (req, res) => {
+  try {
+    const { unitId } = req.params;
+    
+    const result = await pool.query(
+      `SELECT 
+        id, image_base64, display_order, is_primary
+      FROM unit_images 
+      WHERE unit_id = $1 
+      ORDER BY display_order ASC`,
+      [unitId]
+    );
+    
+    const images = result.rows.map(row => ({
+      id: row.id,
+      image_base64: row.image_base64,
+      display_order: row.display_order,
+      is_primary: row.is_primary
+    }));
+    
+    return res.status(200).json({
+      success: true,
+      images: images
+    });
+    
+  } catch (error) {
+    console.error("getUnitImages error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load images",
       error: error.message
     });
   }

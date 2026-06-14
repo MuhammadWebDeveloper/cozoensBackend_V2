@@ -18,10 +18,6 @@ import {
     getMeetingRooms,
     getUnitDetails,
     getUnitImages,
-    getopendeskUnitImages,
-    getDedicatedDeskImages,
-    getPrivateCabinImages,
-    getMeetingRoomImages,
 } from "../controllers/spaceController.js";
 import protect from "../middleware/protect.middleware.js";
 
@@ -46,17 +42,9 @@ spacesRoutes.get("/:spaceId/units/:unitId", getUnitById);
 
 // SIMPLE UNIT TYPE ROUTES for main page                  guest routes 
 spacesRoutes.get("/unit/open_desks", getOpenDesks);
-spacesRoutes.get("/unit/open_desks/:unitId", getopendeskUnitImages);
-
 spacesRoutes.get("/unit/dedicated_desks", getDedicatedDesks);
-spacesRoutes.get("/unit/dedicated_desks/:id", getDedicatedDeskImages);
-
 spacesRoutes.get("/unit/private_cabins", getPrivateCabins);
-spacesRoutes.get("/unit/private_cabins/:id", getPrivateCabinImages);
-
 spacesRoutes.get("/unit/meeting_rooms", getMeetingRooms);
-spacesRoutes.get("/unit/meeting_rooms/:id", getMeetingRoomImages);
-
 spacesRoutes.get('/unit/:unitId', getUnitDetails);
 spacesRoutes.get('/unit/:unitId/images', getUnitImages);
 // Unit routes (nested under spaces)
