@@ -65,7 +65,6 @@ spacesRoutes.delete("/:id", protect, deleteSpace);
 // users remaining routes
 spacesRoutes.post("/:spaceId/addunits", protect, addSpaceUnit);
 spacesRoutes.put("/:spaceId/units/:unitId", protect, updateUnit);
-spacesRoutes.get("/:spaceId/units", getAllUnitsOfSpace);
 spacesRoutes.delete("/:spaceId/units/:unitId", protect, deleteUnit);
 // Add this with your other public routes
 

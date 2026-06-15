@@ -1583,12 +1583,78 @@ export const getSpaceById = async (req, res) => {
 // =============================
 // GET MY SPACES (owner sees their own listings)
 // GET /api/spaces/my-spaces
+// // =============================
+// export const getMySpaces = async (req, res) => {
+//   try {
+//     const owner_id = req.user.id;
+
+//     // Get spaces with units and their images
+//     const result = await pool.query(
+//       `SELECT 
+//         s.id, s.name, s.description, s.address, s.city, s.area,
+//         s.latitude, s.longitude, s.google_maps_link,
+//         s.opening_time, s.closing_time, s.working_days,
+//         s.has_wifi, s.has_ac, s.has_coffee, s.has_printer,
+//         s.has_parking, s.has_security, s.has_backup_power,
+//         s.cancellation_policy, s.refund_policy, s.late_arrival_policy,
+//         s.is_active, s.is_verified, s.created_at, s.updated_at,
+//         COALESCE(
+//           (SELECT json_agg(
+//             json_build_object(
+//               'id', u.id,
+//               'unit_type', u.unit_type,
+//               'name', u.name,
+//               'total_capacity', u.total_capacity,
+//               'hourly_rate', u.hourly_rate,
+//               'daily_rate', u.daily_rate,
+//               'monthly_rate', u.monthly_rate,
+//               'duration', u.duration,
+//               'is_active', u.is_active,
+//               'images', COALESCE(
+//                 (SELECT json_agg(
+//                   json_build_object(
+//                     'id', ui.id,
+//                     'image_base64', ui.image_base64,
+//                     'display_order', ui.display_order,
+//                     'is_primary', ui.is_primary
+//                   ) ORDER BY ui.display_order
+//                 ) FROM unit_images ui WHERE ui.unit_id = u.id),
+//                 '[]'::json
+//               )
+//             ) ORDER BY u.created_at ASC
+//           ) FROM space_units u WHERE u.space_id = s.id AND u.is_active = true),
+//           '[]'::json
+//         ) as units
+//       FROM spaces s
+//       WHERE s.owner_id = $1 AND s.is_active = true
+//       ORDER BY s.created_at DESC`,
+//       [owner_id]
+//     );
+
+//     return res.status(200).json({
+//       success: true,
+//       count: result.rows.length,
+//       spaces: result.rows
+//     });
+//   } catch (error) {
+//     console.error("getMySpaces error:", error.message);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error: " + error.message
+//     });
+//   }
+// };
+
+
+// =============================
+// GET MY SPACES (owner sees their own listings - ALL units including inactive)
+// GET /api/spaces/owner/my-spaces
 // =============================
 export const getMySpaces = async (req, res) => {
   try {
     const owner_id = req.user.id;
 
-    // Get spaces with units and their images
+    // Get spaces with units (NO images for faster response)
     const result = await pool.query(
       `SELECT 
         s.id, s.name, s.description, s.address, s.city, s.area,
@@ -1609,20 +1675,9 @@ export const getMySpaces = async (req, res) => {
               'daily_rate', u.daily_rate,
               'monthly_rate', u.monthly_rate,
               'duration', u.duration,
-              'is_active', u.is_active,
-              'images', COALESCE(
-                (SELECT json_agg(
-                  json_build_object(
-                    'id', ui.id,
-                    'image_base64', ui.image_base64,
-                    'display_order', ui.display_order,
-                    'is_primary', ui.is_primary
-                  ) ORDER BY ui.display_order
-                ) FROM unit_images ui WHERE ui.unit_id = u.id),
-                '[]'::json
-              )
-            ) ORDER BY u.created_at ASC
-          ) FROM space_units u WHERE u.space_id = s.id AND u.is_active = true),
+              'is_active', u.is_active
+            ) ORDER BY u.is_active DESC, u.created_at ASC
+          ) FROM space_units u WHERE u.space_id = s.id),
           '[]'::json
         ) as units
       FROM spaces s
@@ -1644,6 +1699,8 @@ export const getMySpaces = async (req, res) => {
     });
   }
 };
+
+
 
 // =============================
 // UPDATE SPACE (owner edits their listing)
