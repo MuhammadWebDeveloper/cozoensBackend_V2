@@ -1819,8 +1819,67 @@ export const deleteSpace = async (req, res) => {
   }
 };
 
+// // =============================
+// // GET ALL UNITS OF SPACE
+// // GET /api/spaces/:spaceId/units
+// // =============================
+// export const getAllUnitsOfSpace = async (req, res) => {
+//   try {
+//     const { spaceId } = req.params;
+
+//     // Check if space exists
+//     const spaceCheck = await pool.query(
+//       `SELECT id, name FROM spaces WHERE id = $1 AND is_active = true`,
+//       [spaceId]
+//     );
+
+//     if (spaceCheck.rows.length === 0) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Space not found",
+//       });
+//     }
+
+//     // Get all units with their images from unit_images table
+//     const unitsResult = await pool.query(
+//       `SELECT 
+//         u.id, u.unit_type, u.name, u.total_capacity,
+//         u.hourly_rate, u.daily_rate, u.monthly_rate,
+//         u.duration, u.is_active, u.created_at, u.updated_at,
+//         COALESCE(
+//           (SELECT json_agg(
+//             json_build_object(
+//               'id', ui.id,
+//               'image_base64', ui.image_base64,
+//               'display_order', ui.display_order,
+//               'is_primary', ui.is_primary
+//             ) ORDER BY ui.display_order
+//           ) FROM unit_images ui WHERE ui.unit_id = u.id),
+//           '[]'::json
+//         ) as images
+//       FROM space_units u
+//       WHERE u.space_id = $1 AND u.is_active = true
+//       ORDER BY u.created_at ASC`,
+//       [spaceId]
+//     );
+
+//     return res.status(200).json({
+//       success: true,
+//       count: unitsResult.rows.length,
+//       space: spaceCheck.rows[0],
+//       units: unitsResult.rows,
+//     });
+//   } catch (error) {
+//     console.error("getAllUnitsOfSpace error:", error.message);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error"
+//     });
+//   }
+// };
+
 // =============================
-// GET ALL UNITS OF SPACE
+// GET ALL UNITS OF SPACE (Owner sees ALL units including inactive)
 // GET /api/spaces/:spaceId/units
 // =============================
 export const getAllUnitsOfSpace = async (req, res) => {
@@ -1840,7 +1899,7 @@ export const getAllUnitsOfSpace = async (req, res) => {
       });
     }
 
-    // Get all units with their images from unit_images table
+    // Get ALL units (both active AND inactive) with their images
     const unitsResult = await pool.query(
       `SELECT 
         u.id, u.unit_type, u.name, u.total_capacity,
@@ -1858,14 +1917,18 @@ export const getAllUnitsOfSpace = async (req, res) => {
           '[]'::json
         ) as images
       FROM space_units u
-      WHERE u.space_id = $1 AND u.is_active = true
-      ORDER BY u.created_at ASC`,
+      WHERE u.space_id = $1
+      -- 👆 REMOVED "AND u.is_active = true" - Now shows ALL units
+      ORDER BY u.is_active DESC, u.created_at ASC`,
+      // 👆 Active units first, then inactive, both sorted by creation date
       [spaceId]
     );
 
     return res.status(200).json({
       success: true,
       count: unitsResult.rows.length,
+      active_count: unitsResult.rows.filter(u => u.is_active).length,    // 👈 ADDED
+      inactive_count: unitsResult.rows.filter(u => !u.is_active).length, // 👈 ADDED
       space: spaceCheck.rows[0],
       units: unitsResult.rows,
     });
@@ -1877,6 +1940,8 @@ export const getAllUnitsOfSpace = async (req, res) => {
     });
   }
 };
+
+
 
 // =============================
 // GET SINGLE UNIT BY ID
@@ -2922,7 +2987,7 @@ export const getUnitDetails = async (req, res) => {
         has_security: row.has_security,
         has_backup_power: row.has_backup_power,
         owner_id: row.owner_id,
-        
+
         // Nested objects (same as before)
         space: {
           id: row.space_id,
@@ -2991,7 +3056,7 @@ export const getUnitDetails = async (req, res) => {
 export const getUnitImages = async (req, res) => {
   try {
     const { unitId } = req.params;
-    
+
     const result = await pool.query(
       `SELECT 
         id, image_base64, display_order, is_primary
@@ -3000,19 +3065,19 @@ export const getUnitImages = async (req, res) => {
       ORDER BY display_order ASC`,
       [unitId]
     );
-    
+
     const images = result.rows.map(row => ({
       id: row.id,
       image_base64: row.image_base64,
       display_order: row.display_order,
       is_primary: row.is_primary
     }));
-    
+
     return res.status(200).json({
       success: true,
       images: images
     });
-    
+
   } catch (error) {
     console.error("getUnitImages error:", error.message);
     return res.status(500).json({
