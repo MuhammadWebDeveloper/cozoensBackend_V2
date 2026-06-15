@@ -1882,6 +1882,73 @@ export const deleteSpace = async (req, res) => {
 // GET ALL UNITS OF SPACE (Owner sees ALL units including inactive)
 // GET /api/spaces/:spaceId/units
 // =============================
+// export const getAllUnitsOfSpace = async (req, res) => {
+//   try {
+//     const { spaceId } = req.params;
+
+//     // Check if space exists
+//     const spaceCheck = await pool.query(
+//       `SELECT id, name FROM spaces WHERE id = $1 AND is_active = true`,
+//       [spaceId]
+//     );
+
+//     if (spaceCheck.rows.length === 0) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Space not found",
+//       });
+//     }
+
+//     // Get ALL units (both active AND inactive) with their images
+//     const unitsResult = await pool.query(
+//       `SELECT 
+//         u.id, u.unit_type, u.name, u.total_capacity,
+//         u.hourly_rate, u.daily_rate, u.monthly_rate,
+//         u.duration, u.is_active, u.created_at, u.updated_at,
+//         COALESCE(
+//           (SELECT json_agg(
+//             json_build_object(
+//               'id', ui.id,
+//               'image_base64', ui.image_base64,
+//               'display_order', ui.display_order,
+//               'is_primary', ui.is_primary
+//             ) ORDER BY ui.display_order
+//           ) FROM unit_images ui WHERE ui.unit_id = u.id),
+//           '[]'::json
+//         ) as images
+//       FROM space_units u
+//       WHERE u.space_id = $1
+//       -- 👆 REMOVED "AND u.is_active = true" - Now shows ALL units
+//       ORDER BY u.is_active DESC, u.created_at ASC`,
+//       // 👆 Active units first, then inactive, both sorted by creation date
+//       [spaceId]
+//     );
+
+//     return res.status(200).json({
+//       success: true,
+//       count: unitsResult.rows.length,
+//       active_count: unitsResult.rows.filter(u => u.is_active).length,    // 👈 ADDED
+//       inactive_count: unitsResult.rows.filter(u => !u.is_active).length, // 👈 ADDED
+//       space: spaceCheck.rows[0],
+//       units: unitsResult.rows,
+//     });
+//   } catch (error) {
+//     console.error("getAllUnitsOfSpace error:", error.message);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error"
+//     });
+//   }
+// };
+
+
+
+
+
+// =============================
+// GET ALL UNITS OF SPACE (Owner sees ALL units including inactive)
+// GET /api/spaces/:spaceId/units
+// =============================
 export const getAllUnitsOfSpace = async (req, res) => {
   try {
     const { spaceId } = req.params;
@@ -1899,36 +1966,23 @@ export const getAllUnitsOfSpace = async (req, res) => {
       });
     }
 
-    // Get ALL units (both active AND inactive) with their images
+    // Get ALL units (both active AND inactive) - WITHOUT images
     const unitsResult = await pool.query(
       `SELECT 
         u.id, u.unit_type, u.name, u.total_capacity,
         u.hourly_rate, u.daily_rate, u.monthly_rate,
-        u.duration, u.is_active, u.created_at, u.updated_at,
-        COALESCE(
-          (SELECT json_agg(
-            json_build_object(
-              'id', ui.id,
-              'image_base64', ui.image_base64,
-              'display_order', ui.display_order,
-              'is_primary', ui.is_primary
-            ) ORDER BY ui.display_order
-          ) FROM unit_images ui WHERE ui.unit_id = u.id),
-          '[]'::json
-        ) as images
+        u.duration, u.is_active, u.created_at, u.updated_at
       FROM space_units u
       WHERE u.space_id = $1
-      -- 👆 REMOVED "AND u.is_active = true" - Now shows ALL units
       ORDER BY u.is_active DESC, u.created_at ASC`,
-      // 👆 Active units first, then inactive, both sorted by creation date
       [spaceId]
     );
 
     return res.status(200).json({
       success: true,
       count: unitsResult.rows.length,
-      active_count: unitsResult.rows.filter(u => u.is_active).length,    // 👈 ADDED
-      inactive_count: unitsResult.rows.filter(u => !u.is_active).length, // 👈 ADDED
+      active_count: unitsResult.rows.filter(u => u.is_active).length,
+      inactive_count: unitsResult.rows.filter(u => !u.is_active).length,
       space: spaceCheck.rows[0],
       units: unitsResult.rows,
     });
@@ -1940,7 +1994,6 @@ export const getAllUnitsOfSpace = async (req, res) => {
     });
   }
 };
-
 
 
 // =============================
