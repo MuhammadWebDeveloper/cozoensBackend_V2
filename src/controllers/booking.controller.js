@@ -94,10 +94,27 @@ export const createBooking = async (req, res) => {
              )`,
             [space_unit_id, new Date(start_time), new Date(end_time)]
         );
+        const formatDateForDisplay = () => {
+            Date(date).toLocaleString('en-US', {
+                weekday: 'short',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        };
+
+
+
 
         if (overlapCheck.rows.length > 0) {
             const conflictingBooking = overlapCheck.rows[0];
             console.log('❌ Conflict found:', conflictingBooking);
+            const conflictstartDate = formatDateForDisplay(conflictingBooking.start_time);
+            const conflictEndDate = formatDateForDisplay(conflictingBooking.end_time);
+            const formatedStart = formatDateForDisplay(conflictstartDate);
+            const formatedEnd = formatDateForDisplay(conflictEndDate);
 
             // Check if the conflicting booking is the user's own cancelled booking
             const isUserOwnCancelled = await pool.query(
@@ -113,11 +130,13 @@ export const createBooking = async (req, res) => {
             } else {
                 return res.status(409).json({
                     success: false,
-                    message: "This time slot is already booked. Please select different dates.",
+                    message: `This time slot is already booked from ${formattedStart} to ${formattedEnd}.Please select different dates.`,
                     conflictingBooking: {
                         booking_ref: conflictingBooking.booking_ref,
                         start_time: conflictingBooking.start_time,
                         end_time: conflictingBooking.end_time,
+                        start_date_formatted: formattedStart,
+                        end_date_formatted: formattedEnd,
                         status: conflictingBooking.status
                     }
                 });
