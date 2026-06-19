@@ -130,7 +130,7 @@ export const createBooking = async (req, res) => {
             } else {
                 return res.status(409).json({
                     success: false,
-                    message: `This time slot is already booked from ${formatedStart} to ${formatedEnd}.Please select different dates.`,
+                    message: `Already booked from ${formatedStart} to ${formatedEnd}.Please select different dates.`,
                     // message: `This time slot is already booked Please select different dates.`,
                     conflictingBooking: {
                         booking_ref: conflictingBooking.booking_ref,
