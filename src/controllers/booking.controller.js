@@ -94,8 +94,8 @@ export const createBooking = async (req, res) => {
              )`,
             [space_unit_id, new Date(start_time), new Date(end_time)]
         );
-        const formatDateForDisplay = () => {
-            Date(date).toLocaleString('en-US', {
+        const formatDateForDisplay = (date) => {
+            return new Date(date).toLocaleString('en-US', {
                 weekday: 'short',
                 year: 'numeric',
                 month: 'short',
@@ -130,7 +130,7 @@ export const createBooking = async (req, res) => {
             } else {
                 return res.status(409).json({
                     success: false,
-                    message: `This time slot is already booked from ${formattedStart} to ${formattedEnd}.Please select different dates.`,
+                    message: `This time slot is already booked from ${formatedStart} to ${formatedEnd}.Please select different dates.`,
                     conflictingBooking: {
                         booking_ref: conflictingBooking.booking_ref,
                         start_time: conflictingBooking.start_time,
