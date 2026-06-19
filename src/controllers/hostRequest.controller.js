@@ -43,6 +43,41 @@ export const submitHostRequest = async (req, res) => {
 // =============================
 // GET PENDING REQUESTS (ADMIN)
 // =============================
+// export const getPendingHostRequests = async (req, res) => {
+//     try {
+//         if (req.user.role !== 'admin') {
+//             return res.status(403).json({
+//                 success: false,
+//                 message: "Access denied. Admin only."
+//             });
+//         }
+
+//         const result = await pool.query(
+//             `SELECT 
+//                 hr.id, hr.cnic_number, hr.phone_number, hr.additional_info,
+//                 hr.status, hr.created_at,
+//                 u.id as user_id, u.email as user_email,
+//                 u.full_name as user_name
+//              FROM host_requests hr
+//              JOIN users u ON hr.user_id = u.id
+//              WHERE hr.status = 'pending'
+//              ORDER BY hr.created_at ASC`
+//         );
+
+//         res.status(200).json({
+//             success: true,
+//             count: result.rows.length,
+//             requests: result.rows
+//         });
+
+//     } catch (error) {
+//         console.error("Get pending requests error:", error);
+//         res.status(500).json({
+//             success: false,
+//             message: "Server error"
+//         });
+//     }
+// };
 export const getPendingHostRequests = async (req, res) => {
     try {
         if (req.user.role !== 'admin') {
@@ -54,9 +89,16 @@ export const getPendingHostRequests = async (req, res) => {
 
         const result = await pool.query(
             `SELECT 
-                hr.id, hr.cnic_number, hr.phone_number, hr.additional_info,
-                hr.status, hr.created_at,
-                u.id as user_id, u.email as user_email,
+                hr.id, 
+                hr.cnic_number, 
+                hr.phone_number, 
+                hr.additional_info,
+                hr.status, 
+                hr.created_at,
+                hr.cnic_front_image,
+                hr.cnic_back_image,
+                u.id as user_id, 
+                u.email as user_email,
                 u.full_name as user_name
              FROM host_requests hr
              JOIN users u ON hr.user_id = u.id
@@ -78,7 +120,6 @@ export const getPendingHostRequests = async (req, res) => {
         });
     }
 };
-
 // =============================
 // APPROVE HOST REQUEST (ADMIN)
 // =============================
