@@ -111,8 +111,8 @@ export const createBooking = async (req, res) => {
         if (overlapCheck.rows.length > 0) {
             const conflictingBooking = overlapCheck.rows[0];
             console.log('❌ Conflict found:', conflictingBooking);
-            const conflictstartDate = formatDateForDisplay(conflictingBooking.start_time);
-            const conflictEndDate = formatDateForDisplay(conflictingBooking.end_time);
+            const conflictstartDate = new Date(conflictingBooking.start_time);
+            const conflictEndDate = new Date(conflictingBooking.end_time);
             const formatedStart = formatDateForDisplay(conflictstartDate);
             const formatedEnd = formatDateForDisplay(conflictEndDate);
 
@@ -135,8 +135,8 @@ export const createBooking = async (req, res) => {
                         booking_ref: conflictingBooking.booking_ref,
                         start_time: conflictingBooking.start_time,
                         end_time: conflictingBooking.end_time,
-                        start_date_formatted: formattedStart,
-                        end_date_formatted: formattedEnd,
+                        start_date_formatted: formatedStart,
+                        end_date_formatted: formatedEnd,
                         status: conflictingBooking.status
                     }
                 });
