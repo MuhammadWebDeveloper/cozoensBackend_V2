@@ -337,10 +337,8 @@ export const sendHostRejectionEmail = async (userData) => {
 };
 
 // backend/services/email.service.js
-// Add this function (keeping your exact format)
-
 // =============================
-// SEND ADMIN HOST REQUEST NOTIFICATION (NEW)
+// SEND ADMIN HOST REQUEST NOTIFICATION
 // =============================
 export const sendAdminHostRequestNotification = async (data) => {
     try {
@@ -384,8 +382,10 @@ export const sendAdminHostRequestNotification = async (data) => {
                 </div>
             `
         });
-        console.log('✅ Admin host request notification sent');
+        console.log('✅ Admin host request notification sent to:', adminEmail);
+        return true;
     } catch (error) {
         console.error('❌ Admin host request notification error:', error.message);
+        return false;
     }
 };

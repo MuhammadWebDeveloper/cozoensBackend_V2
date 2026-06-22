@@ -3,10 +3,11 @@ import { pool } from "../config/db.config.js";
 import {
     sendHostApprovalEmail,
     sendHostRejectionEmail,
-    sendAdminHostRequestNotification  // ✅ NEW - We'll add this
+    sendAdminHostRequestNotification
 } from "../services/email.service.js";
+
 // =============================
-// SUBMIT HOST REQUEST (WITH ADMIN NOTIFICATION)
+// SUBMIT HOST REQUEST
 // =============================
 export const submitHostRequest = async (req, res) => {
     try {
@@ -20,7 +21,7 @@ export const submitHostRequest = async (req, res) => {
             });
         }
 
-        // ✅ GET USER DETAILS FOR EMAIL
+        // GET USER DETAILS FOR EMAIL
         const userQuery = await pool.query(
             'SELECT full_name, email FROM users WHERE id = $1',
             [user_id]
@@ -38,7 +39,8 @@ export const submitHostRequest = async (req, res) => {
 
         const requestId = result.rows[0].id;
 
-        // ✅ SEND ADMIN NOTIFICATION EMAIL (Using your format)
+        // ✅ SEND ADMIN NOTIFICATION
+        console.log('📧 Sending admin notification for request:', requestId);
         await sendAdminHostRequestNotification({
             user_name: user.full_name,
             user_email: user.email,
@@ -63,6 +65,7 @@ export const submitHostRequest = async (req, res) => {
         });
     }
 };
+
 // =============================
 // GET PENDING HOST REQUESTS
 // =============================
@@ -108,8 +111,9 @@ export const getPendingHostRequests = async (req, res) => {
         });
     }
 };
+
 // =============================
-// APPROVE HOST REQUEST (FIXED)
+// APPROVE HOST REQUEST
 // =============================
 export const approveHostRequest = async (req, res) => {
     try {
@@ -117,8 +121,7 @@ export const approveHostRequest = async (req, res) => {
         const admin_notes = req.body?.admin_notes || null;
         const admin_id = req.user.id;
 
-        console.log('Approve request - Body:', req.body);
-        console.log('Admin notes:', admin_notes);
+        console.log('✅ Approve request:', { requestId, admin_notes, admin_id });
 
         if (req.user.role !== 'admin') {
             return res.status(403).json({
@@ -130,7 +133,7 @@ export const approveHostRequest = async (req, res) => {
         await pool.query('BEGIN');
 
         try {
-            // ✅ GET USER DETAILS BEFORE UPDATE
+            // GET USER DETAILS BEFORE UPDATE
             const userQuery = await pool.query(
                 `SELECT u.id, u.full_name, u.email, u.role, hr.id as request_id
                  FROM host_requests hr
@@ -176,7 +179,7 @@ export const approveHostRequest = async (req, res) => {
                  SET role = 'owner',
                      updated_at = NOW()
                  WHERE id = $1 AND role != 'admin'
-                 RETURNING id, role, email, full_name as name`,
+                 RETURNING id, role, email, full_name`,
                 [user_id]
             );
 
@@ -192,11 +195,11 @@ export const approveHostRequest = async (req, res) => {
 
             const user = userUpdateResult.rows[0];
 
-            // ✅ SEND APPROVAL EMAIL (Using YOUR format)
+            // ✅ SEND APPROVAL EMAIL
+            console.log('📧 Sending approval email to:', user.email);
             await sendHostApprovalEmail({
                 email: user.email,
-                full_name: user.name,
-                // Don't pass extra fields that break your format
+                full_name: user.full_name  // ✅ Use full_name not name
             });
 
             res.status(200).json({
@@ -207,7 +210,7 @@ export const approveHostRequest = async (req, res) => {
                     user: {
                         id: user.id,
                         email: user.email,
-                        name: user.name,
+                        name: user.full_name,
                         role: user.role
                     }
                 }
@@ -226,8 +229,9 @@ export const approveHostRequest = async (req, res) => {
         });
     }
 };
+
 // =============================
-// REJECT HOST REQUEST (FIXED)
+// REJECT HOST REQUEST
 // =============================
 export const rejectHostRequest = async (req, res) => {
     try {
@@ -235,8 +239,7 @@ export const rejectHostRequest = async (req, res) => {
         const rejection_reason = req.body?.rejection_reason || "No reason provided";
         const admin_id = req.user.id;
 
-        console.log('Reject request - Body:', req.body);
-        console.log('Rejection reason:', rejection_reason);
+        console.log('❌ Reject request:', { requestId, rejection_reason, admin_id });
 
         if (req.user.role !== 'admin') {
             return res.status(403).json({
@@ -245,7 +248,7 @@ export const rejectHostRequest = async (req, res) => {
             });
         }
 
-        // ✅ GET USER DETAILS BEFORE UPDATE
+        // GET USER DETAILS BEFORE UPDATE
         const userQuery = await pool.query(
             `SELECT u.id, u.full_name, u.email, hr.id as request_id
              FROM host_requests hr
@@ -282,11 +285,12 @@ export const rejectHostRequest = async (req, res) => {
             });
         }
 
-        // ✅ SEND REJECTION EMAIL (Using YOUR format)
+        // ✅ SEND REJECTION EMAIL
+        console.log('📧 Sending rejection email to:', userData.email);
         await sendHostRejectionEmail({
             email: userData.email,
-            full_name: userData.full_name,
-            reason: rejection_reason  // Your function expects 'reason'
+            full_name: userData.full_name,  // ✅ Use full_name
+            reason: rejection_reason
         });
 
         res.status(200).json({
@@ -302,6 +306,7 @@ export const rejectHostRequest = async (req, res) => {
         });
     }
 };
+
 // =============================
 // GET STATUS OF SPECIFIC REQUEST (USER)
 // =============================
@@ -376,6 +381,7 @@ export const getHostRequestStatus = async (req, res) => {
         });
     }
 };
+
 // =============================
 // GET ALL REQUESTS FOR LOGGED-IN USER
 // =============================
@@ -408,6 +414,7 @@ export const getMyHostRequests = async (req, res) => {
         });
     }
 };
+
 // =============================
 // CHECK IF USER CAN SUBMIT REQUEST
 // =============================
@@ -482,4 +489,4 @@ export const canSubmitHostRequest = async (req, res) => {
             message: "Server error. Please try again later."
         });
     }
-}; 
+};

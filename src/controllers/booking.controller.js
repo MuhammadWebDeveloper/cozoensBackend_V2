@@ -80,8 +80,8 @@ export const createBooking = async (req, res) => {
                 message: "You cannot book your own space"
             });
         }
-        const formatDateForDisplay = (date) => {
-            return new Date(date).toLocaleString('en-US', {
+        const formatDateForDisplay = (dateInput) => {
+            return new Date(dateInput).toLocaleString('en-US', {
                 weekday: 'short',
                 year: 'numeric',
                 month: 'short',
@@ -272,53 +272,6 @@ export const createBooking = async (req, res) => {
         });
     }
 };
-// ============================================
-// 2. GET MY BOOKINGS (Buyer)
-// ============================================
-// export const getMyBookings = async (req, res) => {
-//     try {
-//         const user_id = req.user.id;
-
-//         const result = await pool.query(
-//             `SELECT b.*,
-//                 json_build_object(
-//                     'id', u.id,
-//                     'name', u.name,
-//                     'unit_type', u.unit_type,
-//                     'total_capacity', u.total_capacity,
-//                     'images', u.images
-//                 ) as unit,
-//                 json_build_object(
-//                     'id', s.id,
-//                     'name', s.name,
-//                     'address', s.address,
-//                     'city', s.city,
-//                     'area', s.area
-//                 ) as space
-//              FROM bookings b
-//              JOIN space_units u ON u.id = b.space_unit_id
-//              JOIN spaces s ON s.id = u.space_id
-//              WHERE b.user_id = $1
-//              ORDER BY 
-//                 CASE 
-//                     WHEN b.status = 'pending' THEN 1 
-//                     WHEN b.status = 'confirmed' THEN 2 
-//                     ELSE 3 
-//                 END,
-//                 b.created_at DESC`,
-//             [user_id]
-//         );
-
-//         return res.status(200).json({
-//             success: true,
-//             count: result.rows.length,
-//             bookings: result.rows
-//         });
-//     } catch (error) {
-//         console.error("getMyBookings error:", error.message);
-//         return res.status(500).json({ success: false, message: "Server error" });
-//     }
-// };
 
 
 export const getMyBookings = async (req, res) => {
