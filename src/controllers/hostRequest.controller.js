@@ -1,8 +1,12 @@
+// backend/controllers/host.controller.js
 import { pool } from "../config/db.config.js";
-import { sendHostApprovalEmail, sendHostRejectionEmail } from "../services/email.service.js";
-
+import {
+    sendHostApprovalEmail,
+    sendHostRejectionEmail,
+    sendAdminHostRequestNotification  // ✅ NEW - We'll add this
+} from "../services/email.service.js";
 // =============================
-// SUBMIT HOST REQUEST
+// SUBMIT HOST REQUEST (WITH ADMIN NOTIFICATION)
 // =============================
 export const submitHostRequest = async (req, res) => {
     try {
@@ -16,6 +20,13 @@ export const submitHostRequest = async (req, res) => {
             });
         }
 
+        // ✅ GET USER DETAILS FOR EMAIL
+        const userQuery = await pool.query(
+            'SELECT full_name, email FROM users WHERE id = $1',
+            [user_id]
+        );
+        const user = userQuery.rows[0];
+
         const result = await pool.query(
             `INSERT INTO host_requests (
                 user_id, cnic_number, cnic_front_image, cnic_back_image, 
@@ -25,10 +36,23 @@ export const submitHostRequest = async (req, res) => {
             [user_id, cnic_number, cnic_front_image, cnic_back_image, phone_number, additional_info || null]
         );
 
+        const requestId = result.rows[0].id;
+
+        // ✅ SEND ADMIN NOTIFICATION EMAIL (Using your format)
+        await sendAdminHostRequestNotification({
+            user_name: user.full_name,
+            user_email: user.email,
+            phone_number: phone_number,
+            cnic_number: cnic_number,
+            additional_info: additional_info || 'N/A',
+            request_id: requestId,
+            submitted_at: new Date().toISOString()
+        });
+
         res.status(201).json({
             success: true,
             message: "Host request submitted successfully",
-            request_id: result.rows[0].id
+            request_id: requestId
         });
 
     } catch (error) {
@@ -39,45 +63,9 @@ export const submitHostRequest = async (req, res) => {
         });
     }
 };
-
 // =============================
-// GET PENDING REQUESTS (ADMIN)
+// GET PENDING HOST REQUESTS
 // =============================
-// export const getPendingHostRequests = async (req, res) => {
-//     try {
-//         if (req.user.role !== 'admin') {
-//             return res.status(403).json({
-//                 success: false,
-//                 message: "Access denied. Admin only."
-//             });
-//         }
-
-//         const result = await pool.query(
-//             `SELECT 
-//                 hr.id, hr.cnic_number, hr.phone_number, hr.additional_info,
-//                 hr.status, hr.created_at,
-//                 u.id as user_id, u.email as user_email,
-//                 u.full_name as user_name
-//              FROM host_requests hr
-//              JOIN users u ON hr.user_id = u.id
-//              WHERE hr.status = 'pending'
-//              ORDER BY hr.created_at ASC`
-//         );
-
-//         res.status(200).json({
-//             success: true,
-//             count: result.rows.length,
-//             requests: result.rows
-//         });
-
-//     } catch (error) {
-//         console.error("Get pending requests error:", error);
-//         res.status(500).json({
-//             success: false,
-//             message: "Server error"
-//         });
-//     }
-// };
 export const getPendingHostRequests = async (req, res) => {
     try {
         if (req.user.role !== 'admin') {
@@ -121,115 +109,17 @@ export const getPendingHostRequests = async (req, res) => {
     }
 };
 // =============================
-// APPROVE HOST REQUEST (ADMIN)
+// APPROVE HOST REQUEST (FIXED)
 // =============================
-// export const approveHostRequest = async (req, res) => {
-//     try {
-//         const { requestId } = req.params;
-//         const { admin_notes } = req.body;
-//         const admin_id = req.user.id;
-
-//         // Check if user is admin
-//         if (req.user.role !== 'admin') {
-//             return res.status(403).json({
-//                 success: false,
-//                 message: "Access denied. Admin only."
-//             });
-//         }
-
-//         // Start a transaction to ensure both updates happen or none
-//         await pool.query('BEGIN');
-
-//         try {
-//             // First, update the host request status
-//             const requestResult = await pool.query(
-//                 `UPDATE host_requests 
-//                  SET status = 'approved',
-//                      admin_notes = COALESCE($1, admin_notes),
-//                      reviewed_at = NOW(),
-//                      reviewed_by = $2,
-//                      updated_at = NOW()
-//                  WHERE id = $3 AND status = 'pending'
-//                  RETURNING id, user_id`,
-//                 [admin_notes, admin_id, requestId]
-//             );
-
-//             if (requestResult.rows.length === 0) {
-//                 await pool.query('ROLLBACK');
-//                 return res.status(404).json({
-//                     success: false,
-//                     message: "Host request not found or already processed"
-//                 });
-//             }
-
-//             const { user_id } = requestResult.rows[0];
-
-//             // Update the user's role to 'owner' or 'host'
-//             const userUpdateResult = await pool.query(
-//                 `UPDATE users 
-//                  SET role = 'owner',
-//                      updated_at = NOW()
-//                  WHERE id = $1 AND role != 'admin'
-//                  RETURNING id, role, email, name`,
-//                 [user_id]
-//             );
-
-//             if (userUpdateResult.rows.length === 0) {
-//                 await pool.query('ROLLBACK');
-//                 return res.status(404).json({
-//                     success: false,
-//                     message: "User not found or cannot update admin role"
-//                 });
-//             }
-
-//             // Commit the transaction
-//             await pool.query('COMMIT');
-
-//             // Send email notification (optional)
-//             const user = userUpdateResult.rows[0];
-
-//             res.status(200).json({
-//                 success: true,
-//                 message: "Host request approved successfully. User role updated to owner.",
-//                 data: {
-//                     request_id: requestId,
-//                     user: {
-//                         id: user.id,
-//                         email: user.email,
-//                         name: user.name,
-//                         role: user.role
-//                     }
-//                 }
-//             });
-
-//         } catch (error) {
-//             await pool.query('ROLLBACK');
-//             throw error;
-//         }
-
-//     } catch (error) {
-//         console.error("Approve host request error:", error);
-//         res.status(500).json({
-//             success: false,
-//             message: "Server error: " + error.message
-//         });
-//     }
-// };
-// // =============================
-
-
-
 export const approveHostRequest = async (req, res) => {
     try {
         const { requestId } = req.params;
-        // ✅ FIX: Safely extract admin_notes with null check
-        const admin_notes = req.body && req.body.admin_notes ? req.body.admin_notes : null;
+        const admin_notes = req.body?.admin_notes || null;
         const admin_id = req.user.id;
 
-        console.log('Approve request - Body:', req.body); // Debug log
-        console.log('Admin notes:', admin_notes); // Debug log
+        console.log('Approve request - Body:', req.body);
+        console.log('Admin notes:', admin_notes);
 
-        // Check if user is admin
         if (req.user.role !== 'admin') {
             return res.status(403).json({
                 success: false,
@@ -237,10 +127,28 @@ export const approveHostRequest = async (req, res) => {
             });
         }
 
-        // Start a transaction
         await pool.query('BEGIN');
 
         try {
+            // ✅ GET USER DETAILS BEFORE UPDATE
+            const userQuery = await pool.query(
+                `SELECT u.id, u.full_name, u.email, u.role, hr.id as request_id
+                 FROM host_requests hr
+                 JOIN users u ON hr.user_id = u.id
+                 WHERE hr.id = $1 AND hr.status = 'pending'`,
+                [requestId]
+            );
+
+            if (userQuery.rows.length === 0) {
+                await pool.query('ROLLBACK');
+                return res.status(404).json({
+                    success: false,
+                    message: "Host request not found or already processed"
+                });
+            }
+
+            const userData = userQuery.rows[0];
+
             const requestResult = await pool.query(
                 `UPDATE host_requests 
                  SET status = 'approved',
@@ -263,7 +171,6 @@ export const approveHostRequest = async (req, res) => {
 
             const { user_id } = requestResult.rows[0];
 
-            // ✅ FIX: Use full_name instead of name
             const userUpdateResult = await pool.query(
                 `UPDATE users 
                  SET role = 'owner',
@@ -284,6 +191,13 @@ export const approveHostRequest = async (req, res) => {
             await pool.query('COMMIT');
 
             const user = userUpdateResult.rows[0];
+
+            // ✅ SEND APPROVAL EMAIL (Using YOUR format)
+            await sendHostApprovalEmail({
+                email: user.email,
+                full_name: user.name,
+                // Don't pass extra fields that break your format
+            });
 
             res.status(200).json({
                 success: true,
@@ -312,116 +226,17 @@ export const approveHostRequest = async (req, res) => {
         });
     }
 };
-// REJECT HOST REQUEST (ADMIN)
 // =============================
-// export const rejectHostRequest = async (req, res) => {
-//     try {
-//         const { requestId } = req.params;
-//         const { rejection_reason } = req.body;
-//         const admin_id = req.user.id;
-
-//         if (req.user.role !== 'admin') {
-//             return res.status(403).json({
-//                 success: false,
-//                 message: "Access denied. Admin only."
-//             });
-//         }
-
-//         if (!rejection_reason) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Rejection reason is required"
-//             });
-//         }
-
-//         const result = await pool.query(
-//             `UPDATE host_requests 
-//              SET status = 'rejected',
-//                  admin_notes = $1,
-//                  reviewed_at = NOW(),
-//                  reviewed_by = $2,
-//                  updated_at = NOW()
-//              WHERE id = $3 AND status = 'pending'
-//              RETURNING id`,
-//             [rejection_reason, admin_id, requestId]
-//         );
-
-//         if (result.rows.length === 0) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: "Host request not found or already processed"
-//             });
-//         }
-
-//         res.status(200).json({
-//             success: true,
-//             message: "Host request rejected successfully"
-//         });
-
-//     } catch (error) {
-//         console.error("Reject host request error:", error);
-//         res.status(500).json({
-//             success: false,
-//             message: "Server error"
-//         });
-//     }
-// };
-// export const rejectHostRequest = async (req, res) => {
-//     try {
-//         const { requestId } = req.params;
-//         // Handle case where body is empty or undefined
-//         const rejection_reason = req.body?.rejection_reason || "No reason provided";
-//         const admin_id = req.user.id;
-
-//         if (req.user.role !== 'admin') {
-//             return res.status(403).json({
-//                 success: false,
-//                 message: "Access denied. Admin only."
-//             });
-//         }
-
-//         const result = await pool.query(
-//             `UPDATE host_requests 
-//              SET status = 'rejected',
-//                  admin_notes = $1,
-//                  reviewed_at = NOW(),
-//                  reviewed_by = $2,
-//                  updated_at = NOW()
-//              WHERE id = $3 AND status = 'pending'
-//              RETURNING id`,
-//             [rejection_reason, admin_id, requestId]
-//         );
-
-//         if (result.rows.length === 0) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: "Host request not found or already processed"
-//             });
-//         }
-
-//         res.status(200).json({
-//             success: true,
-//             message: "Host request rejected successfully"
-//         });
-
-//     } catch (error) {
-//         console.error("Reject host request error:", error);
-//         res.status(500).json({
-//             success: false,
-//             message: "Server error: " + error.message
-//         });
-//     }
-// };
-
+// REJECT HOST REQUEST (FIXED)
+// =============================
 export const rejectHostRequest = async (req, res) => {
     try {
         const { requestId } = req.params;
-        // ✅ FIX: Safely extract rejection_reason
-        const rejection_reason = req.body && req.body.rejection_reason ? req.body.rejection_reason : "No reason provided";
+        const rejection_reason = req.body?.rejection_reason || "No reason provided";
         const admin_id = req.user.id;
 
-        console.log('Reject request - Body:', req.body); // Debug log
-        console.log('Rejection reason:', rejection_reason); // Debug log
+        console.log('Reject request - Body:', req.body);
+        console.log('Rejection reason:', rejection_reason);
 
         if (req.user.role !== 'admin') {
             return res.status(403).json({
@@ -429,6 +244,24 @@ export const rejectHostRequest = async (req, res) => {
                 message: "Access denied. Admin only."
             });
         }
+
+        // ✅ GET USER DETAILS BEFORE UPDATE
+        const userQuery = await pool.query(
+            `SELECT u.id, u.full_name, u.email, hr.id as request_id
+             FROM host_requests hr
+             JOIN users u ON hr.user_id = u.id
+             WHERE hr.id = $1 AND hr.status = 'pending'`,
+            [requestId]
+        );
+
+        if (userQuery.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Host request not found or already processed"
+            });
+        }
+
+        const userData = userQuery.rows[0];
 
         const result = await pool.query(
             `UPDATE host_requests 
@@ -449,6 +282,13 @@ export const rejectHostRequest = async (req, res) => {
             });
         }
 
+        // ✅ SEND REJECTION EMAIL (Using YOUR format)
+        await sendHostRejectionEmail({
+            email: userData.email,
+            full_name: userData.full_name,
+            reason: rejection_reason  // Your function expects 'reason'
+        });
+
         res.status(200).json({
             success: true,
             message: "Host request rejected successfully"
@@ -462,7 +302,6 @@ export const rejectHostRequest = async (req, res) => {
         });
     }
 };
-
 // =============================
 // GET STATUS OF SPECIFIC REQUEST (USER)
 // =============================
@@ -537,7 +376,6 @@ export const getHostRequestStatus = async (req, res) => {
         });
     }
 };
-
 // =============================
 // GET ALL REQUESTS FOR LOGGED-IN USER
 // =============================
@@ -569,10 +407,7 @@ export const getMyHostRequests = async (req, res) => {
             message: "Server error"
         });
     }
-
-
 };
-
 // =============================
 // CHECK IF USER CAN SUBMIT REQUEST
 // =============================
@@ -580,7 +415,6 @@ export const canSubmitHostRequest = async (req, res) => {
     try {
         const user_id = req.user.id;
 
-        // Get the latest request for this user
         const result = await pool.query(
             `SELECT id, status, created_at 
              FROM host_requests 
@@ -590,7 +424,6 @@ export const canSubmitHostRequest = async (req, res) => {
             [user_id]
         );
 
-        // No existing request
         if (result.rows.length === 0) {
             return res.status(200).json({
                 success: true,
@@ -601,7 +434,6 @@ export const canSubmitHostRequest = async (req, res) => {
 
         const latestRequest = result.rows[0];
 
-        // Check status of existing request
         switch (latestRequest.status) {
             case 'pending':
                 return res.status(200).json({
@@ -624,7 +456,6 @@ export const canSubmitHostRequest = async (req, res) => {
                 });
 
             case 'rejected':
-                // Allow resubmission but with warning
                 return res.status(200).json({
                     success: true,
                     canSubmit: true,
@@ -651,4 +482,4 @@ export const canSubmitHostRequest = async (req, res) => {
             message: "Server error. Please try again later."
         });
     }
-};
+}; 

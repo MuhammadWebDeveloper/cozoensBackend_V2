@@ -335,3 +335,57 @@ export const sendHostRejectionEmail = async (userData) => {
         console.error('❌ Host rejection email error:', error.message);
     }
 };
+
+// backend/services/email.service.js
+// Add this function (keeping your exact format)
+
+// =============================
+// SEND ADMIN HOST REQUEST NOTIFICATION (NEW)
+// =============================
+export const sendAdminHostRequestNotification = async (data) => {
+    try {
+        const adminEmail = process.env.ADMIN_EMAIL || 'admin@cozones.com';
+
+        await transporter.sendMail({
+            from: `"CoZones System" <${process.env.EMAIL_USER}>`,
+            to: adminEmail,
+            subject: `📋 New Host Request from ${data.user_name}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+                    <div style="text-align: center; border-bottom: 2px solid #011CCD; padding-bottom: 20px;">
+                        <h1 style="color: #011CCD;">New Host Request</h1>
+                    </div>
+                    <div style="padding: 20px;">
+                        <p>A new host request has been submitted and needs your review.</p>
+                        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                            <p><strong>👤 Name:</strong> ${data.user_name}</p>
+                            <p><strong>📧 Email:</strong> ${data.user_email}</p>
+                            <p><strong>📱 Phone:</strong> ${data.phone_number}</p>
+                            <p><strong>🆔 CNIC:</strong> ${data.cnic_number}</p>
+                            <p><strong>📝 Additional Info:</strong> ${data.additional_info}</p>
+                            <p><strong>📌 Request ID:</strong> #${data.request_id}</p>
+                            <p><strong>📅 Submitted:</strong> ${new Date(data.submitted_at).toLocaleString()}</p>
+                        </div>
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${Base_URL}admin/host-requests" 
+                               style="background-color: #011CCD; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                                Review Request
+                            </a>
+                        </div>
+                        <div style="text-align: center; margin: 10px 0;">
+                            <a href="${Base_URL}admin/host-requests/${data.request_id}" style="color: #011CCD; text-decoration: none;">
+                                View Full Details
+                            </a>
+                        </div>
+                    </div>
+                    <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e0e0e0; color: #666; font-size: 12px;">
+                        <p>&copy; ${new Date().getFullYear()} CoZones. All rights reserved.</p>
+                    </div>
+                </div>
+            `
+        });
+        console.log('✅ Admin host request notification sent');
+    } catch (error) {
+        console.error('❌ Admin host request notification error:', error.message);
+    }
+};
