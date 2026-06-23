@@ -613,7 +613,7 @@
 //                         <h2 style="color: #e53e3e;">Booking Cancelled by User ❌</h2>
 //                         <p>Dear <strong>${booking.owner_name}</strong>,</p>
 //                         <p>The user has cancelled their booking.</p>
-                        
+
 //                         <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 20px 0;">
 //                             <h3>Cancelled Booking Details:</h3>
 //                             <p><strong>Booking Ref:</strong> ${booking.booking_ref}</p>
@@ -623,9 +623,9 @@
 //                             <p><strong>Original Date:</strong> ${new Date(booking.start_time).toLocaleString()}</p>
 //                             <p><strong>Total Amount:</strong> PKR ${parseFloat(booking.total_price).toLocaleString()}</p>
 //                         </div>
-                        
+
 //                         <p>The space is now available for other users to book.</p>
-                        
+
 //                         <div style="text-align: center; margin-top: 30px;">
 //                             <a href="http://localhost:5173/owner-bookings" 
 //                                style="background: #011CCD; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
@@ -652,7 +652,7 @@
 //                         <h2 style="color: #38a169;">Booking Cancelled Successfully ✅</h2>
 //                         <p>Dear <strong>${booking.buyer_name}</strong>,</p>
 //                         <p>Your booking has been cancelled successfully.</p>
-                        
+
 //                         <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 20px 0;">
 //                             <h3>Cancelled Booking Details:</h3>
 //                             <p><strong>Booking Ref:</strong> ${booking.booking_ref}</p>
@@ -661,10 +661,10 @@
 //                             <p><strong>Original Date:</strong> ${new Date(booking.start_time).toLocaleString()}</p>
 //                             <p><strong>Refund Amount:</strong> PKR ${parseFloat(booking.total_price).toLocaleString()}</p>
 //                         </div>
-                        
+
 //                         <p><strong>Refund will be processed within 5-7 business days.</strong></p>
 //                         <p>You can book another space anytime.</p>
-                        
+
 //                         <div style="text-align: center; margin-top: 30px;">
 //                             <a href="http://localhost:5173/spaces" 
 //                                style="background: #011CCD; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
@@ -791,7 +791,7 @@
 //                         <h2 style="color: #38a169;">Booking Confirmed! 🎉</h2>
 //                         <p>Dear <strong>${booking.buyer_name}</strong>,</p>
 //                         <p>Great news! Your booking has been <strong style="color: #38a169;">CONFIRMED</strong> by the space owner.</p>
-                        
+
 //                         <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 20px 0;">
 //                             <h3 style="color: #011CCD;">Booking Details:</h3>
 //                             <table width="100%" cellpadding="8">
@@ -821,19 +821,19 @@
 //                                 </tr>
 //                             </table>
 //                         </div>
-                        
+
 //                         <div style="background: #e6f7e6; padding: 15px; border-radius: 8px; margin: 20px 0;">
 //                             <p style="margin: 0;">📌 <strong>What's Next?</strong></p>
 //                             <p style="margin: 5px 0 0 0;">Please arrive on time at the venue. You can contact the space owner for any special arrangements.</p>
 //                         </div>
-                        
+
 //                         <div style="text-align: center; margin: 30px 0;">
 //                             <a href="http://localhost:5173/my-bookings" 
 //                                style="background: #011CCD; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
 //                                 View My Bookings
 //                             </a>
 //                         </div>
-                        
+
 //                         <p style="color: #666; font-size: 12px;">Thank you for choosing CoZones! Enjoy your booking.</p>
 //                     </div>
 //                 `,
@@ -900,7 +900,7 @@
 //                         <h2 style="color: #e53e3e;">Booking Rejected ❌</h2>
 //                         <p>Dear <strong>${booking.buyer_name}</strong>,</p>
 //                         <p>We regret to inform you that your booking request has been <strong style="color: #e53e3e;">REJECTED</strong> by the space owner.</p>
-                        
+
 //                         <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 20px 0;">
 //                             <h3>Booking Details:</h3>
 //                             <p><strong>Booking Ref:</strong> ${booking.booking_ref}</p>
@@ -908,16 +908,16 @@
 //                             <p><strong>Space:</strong> ${booking.space_name}</p>
 //                             <p><strong>Requested Date:</strong> ${new Date(booking.start_time).toLocaleDateString()}</p>
 //                         </div>
-                        
+
 //                         <p>Don't worry! You can explore other available spaces and book them.</p>
-                        
+
 //                         <div style="text-align: center; margin: 30px 0;">
 //                             <a href="http://localhost:5173/spaces" 
 //                                style="background: #011CCD; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
 //                                 Browse Other Spaces
 //                             </a>
 //                         </div>
-                        
+
 //                         <p style="color: #666; font-size: 12px;">We apologize for any inconvenience caused.</p>
 //                     </div>
 //                 `,
@@ -1342,7 +1342,7 @@
 //                             <h2 style="color: #e53e3e;">Booking Cancelled ❌</h2>
 //                             <p>Dear <strong>${booking.buyer_name}</strong>,</p>
 //                             <p>We regret to inform you that the space owner has cancelled your booking.</p>
-                            
+
 //                             <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 20px 0;">
 //                                 <h3 style="color: #011CCD;">Booking Details:</h3>
 //                                 <p><strong>Booking Ref:</strong> ${booking.booking_ref}</p>
@@ -1350,14 +1350,14 @@
 //                                 <p><strong>Space:</strong> ${booking.space_name}</p>
 //                                 <p><strong>Date:</strong> ${new Date(booking.start_time).toLocaleString()}</p>
 //                             </div>
-                            
+
 //                             <div style="background: #fee2e2; padding: 15px; border-radius: 8px; margin: 20px 0;">
 //                                 <p><strong>Reason for cancellation:</strong></p>
 //                                 <p>${reason}</p>
 //                             </div>
-                            
+
 //                             <p>Your payment will be refunded as per our refund policy. Please contact support if you have any questions.</p>
-                            
+
 //                             <div style="text-align: center; margin: 30px 0;">
 //                                 <a href="http://localhost:5173/spaces" 
 //                                    style="background: #011CCD; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
@@ -1663,7 +1663,7 @@ export const createBooking = async (req, res) => {
             console.log('❌ Conflict found:', conflictingBooking);
             const conflictstartDate = new Date(conflictingBooking.start_time);
             const conflictEndDate = new Date(conflictingBooking.end_time);
-            
+
             // ✅ FIX 3: Using the top-level formatDateForDisplay function
             const formatedStart = formatDateForDisplay(conflictstartDate);
             const formatedEnd = formatDateForDisplay(conflictEndDate);
@@ -1827,6 +1827,103 @@ export const createBooking = async (req, res) => {
 // ============================================
 // 2. GET MY BOOKINGS
 // ============================================
+// export const getMyBookings = async (req, res) => {
+//     try {
+//         const user_id = req.user.id;
+
+//         const result = await pool.query(
+//             `SELECT 
+//                 b.id,
+//                 b.space_unit_id,
+//                 b.start_time,
+//                 b.end_time,
+//                 b.total_price,
+//                 b.status,
+//                 b.booking_ref,
+//                 b.created_at,
+//                 b.updated_at,
+//                 u.id as unit_id,
+//                 u.name as unit_name,
+//                 u.unit_type,
+//                 u.total_capacity,
+//                 u.hourly_rate,
+//                 u.daily_rate,
+//                 u.monthly_rate,
+//                 s.id as space_id,
+//                 s.name as space_name,
+//                 s.address,
+//                 s.city,
+//                 s.area,
+//                 COALESCE(
+//                     (SELECT json_agg(
+//                         json_build_object(
+//                             'id', ui.id,
+//                             'image_base64', ui.image_base64,
+//                             'display_order', ui.display_order,
+//                             'is_primary', ui.is_primary
+//                         ) ORDER BY ui.display_order
+//                     ) FROM unit_images ui WHERE ui.unit_id = u.id),
+//                     '[]'::json
+//                 ) as images
+//             FROM bookings b
+//             JOIN space_units u ON u.id = b.space_unit_id
+//             JOIN spaces s ON s.id = u.space_id
+//             WHERE b.user_id = $1
+//             ORDER BY 
+//                 CASE 
+//                     WHEN b.status = 'pending' THEN 1 
+//                     WHEN b.status = 'confirmed' THEN 2 
+//                     ELSE 3 
+//                 END,
+//                 b.created_at DESC`,
+//             [user_id]
+//         );
+
+//         const bookings = result.rows.map(row => ({
+//             id: row.id,
+//             space_unit_id: row.space_unit_id,
+//             start_time: row.start_time,
+//             end_time: row.end_time,
+//             total_price: parseFloat(row.total_price),
+//             status: row.status,
+//             booking_ref: row.booking_ref,
+//             created_at: row.created_at,
+//             updated_at: row.updated_at,
+//             unit: {
+//                 id: row.unit_id,
+//                 name: row.unit_name,
+//                 unit_type: row.unit_type,
+//                 total_capacity: row.total_capacity,
+//                 hourly_rate: row.hourly_rate ? parseFloat(row.hourly_rate) : null,
+//                 daily_rate: row.daily_rate ? parseFloat(row.daily_rate) : null,
+//                 monthly_rate: row.monthly_rate ? parseFloat(row.monthly_rate) : null,
+//                 images: row.images || []
+//             },
+//             space: {
+//                 id: row.space_id,
+//                 name: row.space_name,
+//                 address: row.address,
+//                 city: row.city,
+//                 area: row.area
+//             }
+//         }));
+
+//         return res.status(200).json({
+//             success: true,
+//             count: bookings.length,
+//             bookings: bookings
+//         });
+//     } catch (error) {
+//         console.error("getMyBookings error:", error.message);
+//         return res.status(500).json({
+//             success: false,
+//             message: "Server error",
+//             error: error.message
+//         });
+//     }
+// };
+
+
 export const getMyBookings = async (req, res) => {
     try {
         const user_id = req.user.id;
@@ -1854,6 +1951,18 @@ export const getMyBookings = async (req, res) => {
                 s.address,
                 s.city,
                 s.area,
+                -- ✅ ADDED: Get dispute data
+                json_build_object(
+                    'id', d.id,
+                    'reason', d.reason,
+                    'description', d.description,
+                    'status', d.status,
+                    'created_at', d.created_at,
+                    'resolved_at', d.resolved_at,
+                    'resolution', d.resolution,
+                    'admin_response', d.resolution,
+                    'raised_by', d.raised_by
+                ) as dispute,
                 COALESCE(
                     (SELECT json_agg(
                         json_build_object(
@@ -1868,6 +1977,8 @@ export const getMyBookings = async (req, res) => {
             FROM bookings b
             JOIN space_units u ON u.id = b.space_unit_id
             JOIN spaces s ON s.id = u.space_id
+            -- ✅ ADDED: LEFT JOIN disputes
+            LEFT JOIN disputes d ON d.booking_id = b.id AND d.status != 'resolved'
             WHERE b.user_id = $1
             ORDER BY 
                 CASE 
@@ -1889,6 +2000,8 @@ export const getMyBookings = async (req, res) => {
             booking_ref: row.booking_ref,
             created_at: row.created_at,
             updated_at: row.updated_at,
+            // ✅ ADDED: Include dispute
+            dispute: row.dispute,
             unit: {
                 id: row.unit_id,
                 name: row.unit_name,
@@ -1922,7 +2035,6 @@ export const getMyBookings = async (req, res) => {
         });
     }
 };
-
 // ============================================
 // 3. GET BOOKING BY ID
 // ============================================
