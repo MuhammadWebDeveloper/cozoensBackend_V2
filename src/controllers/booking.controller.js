@@ -1854,19 +1854,23 @@ export const getMyBookings = async (req, res) => {
                 s.address,
                 s.city,
                 s.area,
-                -- ✅ FIXED: Using actual column names from your table
-                json_build_object(
-                    'id', d.id,
-                    'reason', d.reason,
-                    'description', d.description,
-                    'status', d.status,
-                    'created_at', d.created_at,
-                    'updated_at', d.updated_at,
-                    'resolution', d.resolution,
-                    'raised_by', d.raised_by,
-                    'resolved_by', d.resolved_by,
-                    'raised_by_role', d.raised_by_role
-                ) as dispute,
+                -- ✅ FIXED: Only show disputes raised by THIS user
+                CASE 
+                    WHEN d.id IS NOT NULL AND d.raised_by = $2 THEN
+                        json_build_object(
+                            'id', d.id,
+                            'reason', d.reason,
+                            'description', d.description,
+                            'status', d.status,
+                            'created_at', d.created_at,
+                            'updated_at', d.updated_at,
+                            'resolution', d.resolution,
+                            'raised_by', d.raised_by,
+                            'resolved_by', d.resolved_by,
+                            'raised_by_role', d.raised_by_role
+                        )
+                    ELSE NULL
+                END as dispute,
                 COALESCE(
                     (SELECT json_agg(
                         json_build_object(
@@ -1890,7 +1894,7 @@ export const getMyBookings = async (req, res) => {
                     ELSE 3 
                 END,
                 b.created_at DESC`,
-            [user_id]
+            [user_id, user_id]  // ✅ Pass user_id twice for the parameter
         );
 
         const bookings = result.rows.map(row => ({
@@ -1903,7 +1907,7 @@ export const getMyBookings = async (req, res) => {
             booking_ref: row.booking_ref,
             created_at: row.created_at,
             updated_at: row.updated_at,
-            dispute: row.dispute,
+            dispute: row.dispute,  // ✅ Will be null if not raised by this user
             unit: {
                 id: row.unit_id,
                 name: row.unit_name,
