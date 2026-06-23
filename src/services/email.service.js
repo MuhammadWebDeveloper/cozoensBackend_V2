@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { Base_URL } from './fronturlconstants.js';
+import { Base_Admin_URL, Base_URL } from './fronturlconstants.js';
 
 // Create email transporter
 const transporter = nodemailer.createTransport({
@@ -371,7 +371,7 @@ export const sendAdminHostRequestNotification = async (data) => {
                             </a>
                         </div>
                         <div style="text-align: center; margin: 10px 0;">
-                            <a href="${Base_URL}admin/host-requests/${data.request_id}" style="color: #011CCD; text-decoration: none;">
+                            <a href="${Base_Admin_URL}admin/host-requests/${data.request_id}" style="color: #011CCD; text-decoration: none;">
                                 View Full Details
                             </a>
                         </div>
