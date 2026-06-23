@@ -1827,103 +1827,6 @@ export const createBooking = async (req, res) => {
 // ============================================
 // 2. GET MY BOOKINGS
 // ============================================
-// export const getMyBookings = async (req, res) => {
-//     try {
-//         const user_id = req.user.id;
-
-//         const result = await pool.query(
-//             `SELECT 
-//                 b.id,
-//                 b.space_unit_id,
-//                 b.start_time,
-//                 b.end_time,
-//                 b.total_price,
-//                 b.status,
-//                 b.booking_ref,
-//                 b.created_at,
-//                 b.updated_at,
-//                 u.id as unit_id,
-//                 u.name as unit_name,
-//                 u.unit_type,
-//                 u.total_capacity,
-//                 u.hourly_rate,
-//                 u.daily_rate,
-//                 u.monthly_rate,
-//                 s.id as space_id,
-//                 s.name as space_name,
-//                 s.address,
-//                 s.city,
-//                 s.area,
-//                 COALESCE(
-//                     (SELECT json_agg(
-//                         json_build_object(
-//                             'id', ui.id,
-//                             'image_base64', ui.image_base64,
-//                             'display_order', ui.display_order,
-//                             'is_primary', ui.is_primary
-//                         ) ORDER BY ui.display_order
-//                     ) FROM unit_images ui WHERE ui.unit_id = u.id),
-//                     '[]'::json
-//                 ) as images
-//             FROM bookings b
-//             JOIN space_units u ON u.id = b.space_unit_id
-//             JOIN spaces s ON s.id = u.space_id
-//             WHERE b.user_id = $1
-//             ORDER BY 
-//                 CASE 
-//                     WHEN b.status = 'pending' THEN 1 
-//                     WHEN b.status = 'confirmed' THEN 2 
-//                     ELSE 3 
-//                 END,
-//                 b.created_at DESC`,
-//             [user_id]
-//         );
-
-//         const bookings = result.rows.map(row => ({
-//             id: row.id,
-//             space_unit_id: row.space_unit_id,
-//             start_time: row.start_time,
-//             end_time: row.end_time,
-//             total_price: parseFloat(row.total_price),
-//             status: row.status,
-//             booking_ref: row.booking_ref,
-//             created_at: row.created_at,
-//             updated_at: row.updated_at,
-//             unit: {
-//                 id: row.unit_id,
-//                 name: row.unit_name,
-//                 unit_type: row.unit_type,
-//                 total_capacity: row.total_capacity,
-//                 hourly_rate: row.hourly_rate ? parseFloat(row.hourly_rate) : null,
-//                 daily_rate: row.daily_rate ? parseFloat(row.daily_rate) : null,
-//                 monthly_rate: row.monthly_rate ? parseFloat(row.monthly_rate) : null,
-//                 images: row.images || []
-//             },
-//             space: {
-//                 id: row.space_id,
-//                 name: row.space_name,
-//                 address: row.address,
-//                 city: row.city,
-//                 area: row.area
-//             }
-//         }));
-
-//         return res.status(200).json({
-//             success: true,
-//             count: bookings.length,
-//             bookings: bookings
-//         });
-//     } catch (error) {
-//         console.error("getMyBookings error:", error.message);
-//         return res.status(500).json({
-//             success: false,
-//             message: "Server error",
-//             error: error.message
-//         });
-//     }
-// };
-
-
 export const getMyBookings = async (req, res) => {
     try {
         const user_id = req.user.id;
@@ -1951,17 +1854,18 @@ export const getMyBookings = async (req, res) => {
                 s.address,
                 s.city,
                 s.area,
-                -- ✅ ADDED: Get dispute data
+                -- ✅ FIXED: Using actual column names from your table
                 json_build_object(
                     'id', d.id,
                     'reason', d.reason,
                     'description', d.description,
                     'status', d.status,
                     'created_at', d.created_at,
-                    'resolved_at', d.resolved_at,
+                    'updated_at', d.updated_at,
                     'resolution', d.resolution,
-                    'admin_response', d.resolution,
-                    'raised_by', d.raised_by
+                    'raised_by', d.raised_by,
+                    'resolved_by', d.resolved_by,
+                    'raised_by_role', d.raised_by_role
                 ) as dispute,
                 COALESCE(
                     (SELECT json_agg(
@@ -1977,7 +1881,6 @@ export const getMyBookings = async (req, res) => {
             FROM bookings b
             JOIN space_units u ON u.id = b.space_unit_id
             JOIN spaces s ON s.id = u.space_id
-            -- ✅ ADDED: LEFT JOIN disputes
             LEFT JOIN disputes d ON d.booking_id = b.id AND d.status != 'resolved'
             WHERE b.user_id = $1
             ORDER BY 
@@ -2000,7 +1903,6 @@ export const getMyBookings = async (req, res) => {
             booking_ref: row.booking_ref,
             created_at: row.created_at,
             updated_at: row.updated_at,
-            // ✅ ADDED: Include dispute
             dispute: row.dispute,
             unit: {
                 id: row.unit_id,
@@ -2035,7 +1937,6 @@ export const getMyBookings = async (req, res) => {
         });
     }
 };
-// ============================================
 // 3. GET BOOKING BY ID
 // ============================================
 export const getBookingById = async (req, res) => {
@@ -2814,9 +2715,10 @@ export const createDispute = async (req, res) => {
             });
         }
 
+        // ✅ FIXED: Changed 'open' to 'pending' to match frontend expectations
         const result = await pool.query(
             `INSERT INTO disputes (booking_id, raised_by, reason, description, status)
-             VALUES ($1, $2, $3, $4, 'open')
+             VALUES ($1, $2, $3, $4, 'pending')
              RETURNING *`,
             [bookingId, user_id, reason, description]
         );
@@ -2847,7 +2749,6 @@ export const createDispute = async (req, res) => {
         return res.status(500).json({ success: false, message: "Server error" });
     }
 };
-
 // ============================================
 // 13. GET ALL DISPUTES (Admin)
 // ============================================
@@ -2888,7 +2789,6 @@ export const getAllDisputes = async (req, res) => {
         return res.status(500).json({ success: false, message: "Server error" });
     }
 };
-
 // ============================================
 // 14. RESOLVE DISPUTE (Admin)
 // ============================================
@@ -2905,13 +2805,14 @@ export const resolveDispute = async (req, res) => {
             });
         }
 
+        // ✅ FIXED: Look for 'pending' status instead of 'open'
         const result = await pool.query(
             `UPDATE disputes 
              SET status = 'resolved', 
                  resolution = $1,
                  resolved_by = $2,
                  updated_at = NOW()
-             WHERE id = $3 AND status = 'open'
+             WHERE id = $3 AND status = 'pending'
              RETURNING *`,
             [resolution, admin_id, disputeId]
         );
@@ -2925,6 +2826,7 @@ export const resolveDispute = async (req, res) => {
 
         const dispute = result.rows[0];
 
+        // Get booking details for email
         const bookingDetails = await pool.query(
             `SELECT b.*, bu.email as buyer_email, bu.full_name as buyer_name
              FROM bookings b
@@ -2942,6 +2844,7 @@ export const resolveDispute = async (req, res) => {
             );
         }
 
+        // Send email to both parties
         const parties = await pool.query(
             `SELECT DISTINCT u.email, u.full_name
              FROM bookings b
