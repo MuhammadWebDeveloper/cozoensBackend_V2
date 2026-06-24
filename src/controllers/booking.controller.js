@@ -1866,8 +1866,8 @@ export const getMyBookings = async (req, res) => {
                             'updated_at', d.updated_at,
                             'resolution', d.resolution,
                             'raised_by', d.raised_by,
-                            'resolved_by', d.resolved_by,
                             'raised_by_role', d.raised_by_role
+                            -- ✅ Removed: 'resolved_at' and 'resolved_by' as they don't exist
                         )
                     ELSE NULL
                 END as dispute,
@@ -1894,7 +1894,7 @@ export const getMyBookings = async (req, res) => {
                     ELSE 3 
                 END,
                 b.created_at DESC`,
-            [user_id, user_id]  // ✅ Pass user_id twice for the parameter
+            [user_id, user_id]
         );
 
         const bookings = result.rows.map(row => ({
@@ -1907,7 +1907,7 @@ export const getMyBookings = async (req, res) => {
             booking_ref: row.booking_ref,
             created_at: row.created_at,
             updated_at: row.updated_at,
-            dispute: row.dispute,  // ✅ Will be null if not raised by this user
+            dispute: row.dispute,
             unit: {
                 id: row.unit_id,
                 name: row.unit_name,
