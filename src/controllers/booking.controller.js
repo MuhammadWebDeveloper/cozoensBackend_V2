@@ -2142,7 +2142,8 @@ export const getOwnerBookings = async (req, res) => {
         const owner_id = req.user.id;
 
         const result = await pool.query(
-            `SELECT b.*,
+            `SELECT 
+                b.*,
                 json_build_object(
                     'id', bu.id,
                     'full_name', bu.full_name,
@@ -2161,13 +2162,48 @@ export const getOwnerBookings = async (req, res) => {
                     'address', s.address,
                     'city', s.city,
                     'area', s.area
-                ) as space
-             FROM bookings b
-             JOIN users bu ON bu.id = b.user_id
-             JOIN space_units u ON u.id = b.space_unit_id
-             JOIN spaces s ON s.id = u.space_id
-             WHERE s.owner_id = $1
-             ORDER BY 
+                ) as space,
+                COALESCE(
+                    (
+                        SELECT json_agg(
+                            json_build_object(
+                                'id', d.id,
+                                'reason', d.reason,
+                                'description', d.description,
+                                'status', d.status,
+                                'resolution', d.resolution,
+                                'created_at', d.created_at,
+                                'updated_at', d.updated_at,
+                                'raised_by', json_build_object(
+                                    'id', ru.id,
+                                    'full_name', ru.full_name,
+                                    'email', ru.email,
+                                    'phone', ru.phone
+                                ),
+                                'resolved_by', CASE 
+                                    WHEN d.resolved_by IS NOT NULL THEN 
+                                        json_build_object(
+                                            'id', resu.id,
+                                            'full_name', resu.full_name,
+                                            'email', resu.email
+                                        )
+                                    ELSE NULL
+                                END
+                            )
+                        )
+                        FROM disputes d
+                        LEFT JOIN users ru ON ru.id = d.raised_by
+                        LEFT JOIN users resu ON resu.id = d.resolved_by
+                        WHERE d.booking_id = b.id
+                    ),
+                    '[]'
+                ) as disputes
+            FROM bookings b
+            JOIN users bu ON bu.id = b.user_id
+            JOIN space_units u ON u.id = b.space_unit_id
+            JOIN spaces s ON s.id = u.space_id
+            WHERE s.owner_id = $1
+            ORDER BY 
                 CASE WHEN b.status = 'pending' THEN 1 ELSE 2 END,
                 b.created_at DESC`,
             [owner_id]
