@@ -2196,7 +2196,7 @@ export const getOwnerBookings = async (req, res) => {
                         LEFT JOIN users resu ON resu.id = d.resolved_by
                         WHERE d.booking_id = b.id
                     ),
-                    '[]'
+                    '[]'::json         -- ← THIS was the bug, was a plain string before
                 ) as disputes
             FROM bookings b
             JOIN users bu ON bu.id = b.user_id
