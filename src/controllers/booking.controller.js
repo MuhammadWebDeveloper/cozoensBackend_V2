@@ -3042,3 +3042,133 @@ export const deleteDispute = async (req, res) => {
         });
     }
 };
+// ============================================
+// REJECT DISPUTE (Admin)
+// ============================================
+export const rejectDispute = async (req, res) => {
+    try {
+        const { disputeId } = req.params;
+        const admin_id = req.user.id;
+        const { rejection_reason } = req.body;
+
+        if (!rejection_reason || rejection_reason.trim() === "") {
+            return res.status(400).json({
+                success: false,
+                message: "Rejection reason is required"
+            });
+        }
+
+        // Check if dispute exists and is pending
+        const disputeCheck = await pool.query(
+            `SELECT d.*, b.booking_ref, b.id as booking_id
+             FROM disputes d
+             JOIN bookings b ON b.id = d.booking_id
+             WHERE d.id = $1 AND d.status = 'pending'`,
+            [disputeId]
+        );
+
+        if (disputeCheck.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Dispute not found or already resolved"
+            });
+        }
+
+        // Update dispute status to rejected
+        const result = await pool.query(
+            `UPDATE disputes 
+             SET status = 'rejected', 
+                 resolution = $1,
+                 resolved_by = $2,
+                 updated_at = NOW()
+             WHERE id = $3 
+             RETURNING *`,
+            [rejection_reason.trim(), admin_id, disputeId]
+        );
+
+        const dispute = result.rows[0];
+
+        // Get admin details
+        const adminDetails = await pool.query(
+            `SELECT full_name, email FROM users WHERE id = $1`,
+            [admin_id]
+        );
+        const admin = adminDetails.rows[0] || { full_name: 'Admin', email: 'admin@cozones.com' };
+
+        // Get booking info
+        const bookingInfo = await pool.query(
+            `SELECT b.booking_ref, b.total_price, b.user_id as buyer_id,
+                    s.owner_id
+             FROM bookings b
+             JOIN space_units su ON su.id = b.space_unit_id
+             JOIN spaces s ON s.id = su.space_id
+             WHERE b.id = $1`,
+            [dispute.booking_id]
+        );
+        const booking = bookingInfo.rows[0];
+
+        // Get all parties involved
+        const parties = await pool.query(
+            `SELECT DISTINCT u.email, u.full_name, u.id
+             FROM bookings b
+             JOIN users u ON u.id IN (b.user_id, (SELECT owner_id FROM spaces WHERE id = (SELECT space_id FROM space_units WHERE id = b.space_unit_id)))
+             WHERE b.id = $1`,
+            [dispute.booking_id]
+        );
+
+        // Send rejection emails
+        for (const party of parties.rows) {
+            try {
+                const isBuyer = party.id === booking.buyer_id;
+                const role = isBuyer ? 'Customer' : 'Space Owner';
+                
+                await transporter.sendMail({
+                    from: `"CoZones Admin" <${process.env.EMAIL_USER}>`,
+                    to: party.email,
+                    subject: `❌ Dispute Rejected - Booking ${booking.booking_ref}`,
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+                            <h2 style="color: #e53e3e;">❌ Dispute Rejected</h2>
+                            <p>Dear <strong>${party.full_name}</strong>,</p>
+                            <p>The dispute for booking <strong>${booking.booking_ref}</strong> has been <strong style="color: #e53e3e;">REJECTED</strong> by admin <strong>${admin.full_name}</strong>.</p>
+                            
+                            <div style="background: #fee2e2; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #e53e3e;">
+                                <h3 style="color: #991b1b;">Rejection Reason:</h3>
+                                <p style="background: white; padding: 10px; border-radius: 6px; margin-top: 10px;">
+                                    ${rejection_reason}
+                                </p>
+                            </div>
+
+                            <div style="text-align: center; margin: 30px 0;">
+                                <a href="https://cozones.netlify.app/my-bookings" 
+                                   style="background: #011CCD; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                                    View Your Bookings
+                                </a>
+                            </div>
+
+                            <p style="color: #666; font-size: 12px; border-top: 1px solid #e0e0e0; padding-top: 20px;">
+                                If you have any questions, please contact our support team.
+                            </p>
+                        </div>
+                    `
+                });
+                console.log(`📧 Rejection email sent to ${role}: ${party.email}`);
+            } catch (emailErr) {
+                console.error(`❌ Email to ${party.email} failed:`, emailErr.message);
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Dispute rejected successfully",
+            dispute: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error("rejectDispute error:", error.message);
+        return res.status(500).json({
+            success: false,
+            message: "Server error: " + error.message
+        });
+    }
+};
