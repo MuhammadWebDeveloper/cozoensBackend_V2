@@ -2924,3 +2924,39 @@ export const resolveDispute = async (req, res) => {
         return res.status(500).json({ success: false, message: "Server error" });
     }
 };
+// ============================================
+// 15. GET DISPUTE BY ID (Admin)
+// ============================================
+export const getDisputeById = async (req, res) => {
+    try {
+        const { disputeId } = req.params;
+
+        const result = await pool.query(
+            `SELECT d.*,
+                json_build_object('id', u.id, 'full_name', u.full_name, 'email', u.email, 'phone', u.phone) as raised_by_user,
+                json_build_object('id', b.id, 'booking_ref', b.booking_ref, 'status', b.status, 'start_time', b.start_time, 'end_time', b.end_time, 'total_price', b.total_price) as booking,
+                json_build_object('id', r.id, 'full_name', r.full_name) as resolved_by_user
+            FROM disputes d
+            JOIN users u ON u.id = d.raised_by
+            JOIN bookings b ON b.id = d.booking_id
+            LEFT JOIN users r ON r.id = d.resolved_by
+            WHERE d.id = $1`,
+            [disputeId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Dispute not found"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            dispute: result.rows[0]
+        });
+    } catch (error) {
+        console.error("getDisputeById error:", error.message);
+        return res.status(500).json({ success: false, message: "Server error" });
+    }
+};
