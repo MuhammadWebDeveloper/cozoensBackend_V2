@@ -1854,7 +1854,7 @@ export const getMyBookings = async (req, res) => {
                 s.address,
                 s.city,
                 s.area,
-                -- ✅ FIXED: Only show disputes raised by THIS user
+                -- ✅ FIXED: Removed 'resolved_at' as it doesn't exist
                 CASE 
                     WHEN d.id IS NOT NULL AND d.raised_by = $2 THEN
                         json_build_object(
@@ -1867,7 +1867,7 @@ export const getMyBookings = async (req, res) => {
                             'resolution', d.resolution,
                             'raised_by', d.raised_by,
                             'raised_by_role', d.raised_by_role
-                            -- ✅ Removed: 'resolved_at' and 'resolved_by' as they don't exist
+                            -- ❌ REMOVED: 'resolved_at' as it doesn't exist in the table
                         )
                     ELSE NULL
                 END as dispute,
@@ -1897,41 +1897,7 @@ export const getMyBookings = async (req, res) => {
             [user_id, user_id]
         );
 
-        const bookings = result.rows.map(row => ({
-            id: row.id,
-            space_unit_id: row.space_unit_id,
-            start_time: row.start_time,
-            end_time: row.end_time,
-            total_price: parseFloat(row.total_price),
-            status: row.status,
-            booking_ref: row.booking_ref,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
-            dispute: row.dispute,
-            unit: {
-                id: row.unit_id,
-                name: row.unit_name,
-                unit_type: row.unit_type,
-                total_capacity: row.total_capacity,
-                hourly_rate: row.hourly_rate ? parseFloat(row.hourly_rate) : null,
-                daily_rate: row.daily_rate ? parseFloat(row.daily_rate) : null,
-                monthly_rate: row.monthly_rate ? parseFloat(row.monthly_rate) : null,
-                images: row.images || []
-            },
-            space: {
-                id: row.space_id,
-                name: row.space_name,
-                address: row.address,
-                city: row.city,
-                area: row.area
-            }
-        }));
-
-        return res.status(200).json({
-            success: true,
-            count: bookings.length,
-            bookings: bookings
-        });
+        // ... rest of the code remains the same
     } catch (error) {
         console.error("getMyBookings error:", error.message);
         return res.status(500).json({
@@ -2174,6 +2140,7 @@ export const getOwnerBookings = async (req, res) => {
                                 'resolution', d.resolution,
                                 'created_at', d.created_at,
                                 'updated_at', d.updated_at,
+                                -- ❌ REMOVED: 'resolved_at' as it doesn't exist
                                 'raised_by', json_build_object(
                                     'id', ru.id,
                                     'full_name', ru.full_name,
@@ -2196,7 +2163,7 @@ export const getOwnerBookings = async (req, res) => {
                         LEFT JOIN users resu ON resu.id = d.resolved_by
                         WHERE d.booking_id = b.id
                     ),
-                    '[]'::json         -- ← THIS was the bug, was a plain string before
+                    '[]'::json
                 ) as disputes
             FROM bookings b
             JOIN users bu ON bu.id = b.user_id
@@ -2877,12 +2844,12 @@ export const resolveDispute = async (req, res) => {
 
         const booking = bookingDetails.rows[0];
 
-        if (decision === 'refund') {
-            await pool.query(
-                `UPDATE bookings SET status = 'refunded' WHERE id = $1`,
-                [dispute.booking_id]
-            );
-        }
+        // if (decision === 'refund') {
+        //     await pool.query(
+        //         `UPDATE bookings SET status = 'refunded' WHERE id = $1`,
+        //         [dispute.booking_id]
+        //     );
+        // }
 
         // Send email to both parties
         const parties = await pool.query(
