@@ -2960,3 +2960,85 @@ export const getDisputeById = async (req, res) => {
         return res.status(500).json({ success: false, message: "Server error" });
     }
 };
+// ============================================
+// DELETE DISPUTE (Admin)
+// ============================================
+export const deleteDispute = async (req, res) => {
+    try {
+        const { disputeId } = req.params;
+        const admin_id = req.user.id;
+
+        // Check if dispute exists and get details for logging
+        const disputeCheck = await pool.query(
+            `SELECT d.*, b.booking_ref, b.id as booking_id
+             FROM disputes d
+             JOIN bookings b ON b.id = d.booking_id
+             WHERE d.id = $1`,
+            [disputeId]
+        );
+
+        if (disputeCheck.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Dispute not found"
+            });
+        }
+
+        const dispute = disputeCheck.rows[0];
+
+        // Delete the dispute
+        const result = await pool.query(
+            `DELETE FROM disputes 
+             WHERE id = $1 
+             RETURNING id, booking_id`,
+            [disputeId]
+        );
+
+        // Log the deletion for audit purposes
+        console.log(`🗑️ Dispute ${disputeId} deleted by admin ${admin_id} for booking ${dispute.booking_ref}`);
+
+        // Optional: Send email notification to admin about deletion
+        try {
+            const adminUser = await pool.query(
+                `SELECT email, full_name FROM users WHERE id = $1`,
+                [admin_id]
+            );
+
+            if (adminUser.rows.length > 0) {
+                await transporter.sendMail({
+                    from: `"CoZones Admin" <${process.env.EMAIL_USER}>`,
+                    to: process.env.ADMIN_EMAIL || process.env.EMAIL_USER,
+                    subject: `🗑️ Dispute Deleted - Booking ${dispute.booking_ref}`,
+                    html: `
+                        <div style="font-family: Arial, sans-serif; padding: 20px;">
+                            <h2 style="color: #e53e3e;">Dispute Deleted</h2>
+                            <p>A dispute has been deleted by <strong>${adminUser.rows[0].full_name}</strong> (${adminUser.rows[0].email})</p>
+                            <div style="background: #f7fafc; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                                <p><strong>Dispute ID:</strong> ${disputeId}</p>
+                                <p><strong>Booking Ref:</strong> ${dispute.booking_ref}</p>
+                                <p><strong>Reason:</strong> ${dispute.reason}</p>
+                                <p><strong>Status:</strong> ${dispute.status}</p>
+                                <p><strong>Deleted At:</strong> ${new Date().toLocaleString()}</p>
+                            </div>
+                        </div>
+                    `
+                });
+            }
+        } catch (emailErr) {
+            console.error('❌ Admin deletion email failed:', emailErr.message);
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Dispute deleted successfully",
+            deletedDispute: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error("deleteDispute error:", error.message);
+        return res.status(500).json({
+            success: false,
+            message: "Server error: " + error.message
+        });
+    }
+};

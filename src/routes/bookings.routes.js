@@ -1,4 +1,4 @@
-// booking.routes.js - Updated
+// booking.routes.js - Updated with Delete Dispute
 import express from 'express';
 import {
     createBooking,
@@ -12,8 +12,9 @@ import {
     adminGetAllBookings,
     createDispute,
     getAllDisputes,
-    getDisputeById,        // ✅ ADD THIS
+    getDisputeById,
     resolveDispute,
+    deleteDispute,           // ✅ ADD THIS
     deleteAllBookings,
     deleteBooking
 } from '../controllers/booking.controller.js';
@@ -41,7 +42,8 @@ Bookingroutes.get('/admin/all-bookings', protect, adminOnly, adminGetAllBookings
 // ============ DISPUTE Routes ============
 Bookingroutes.post('/:bookingId/dispute', protect, createDispute);
 Bookingroutes.get('/admin/disputes', protect, adminOnly, getAllDisputes);
-Bookingroutes.get('/admin/disputes/:disputeId', protect, adminOnly, getDisputeById); // ✅ ADD THIS
+Bookingroutes.get('/admin/disputes/:disputeId', protect, adminOnly, getDisputeById);
 Bookingroutes.patch('/admin/disputes/:disputeId/resolve', protect, adminOnly, resolveDispute);
+Bookingroutes.delete('/admin/disputes/:disputeId', protect, adminOnly, deleteDispute); // ✅ ADD THIS - Delete dispute by ID
 
 export default Bookingroutes;
