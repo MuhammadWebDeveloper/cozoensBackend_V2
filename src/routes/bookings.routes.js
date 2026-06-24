@@ -1,4 +1,4 @@
-// booking.routes.js - Updated with Delete Dispute
+// booking.routes.js - Fixed Route Order
 import express from 'express';
 import {
     createBooking,
@@ -14,7 +14,7 @@ import {
     getAllDisputes,
     getDisputeById,
     resolveDispute,
-    deleteDispute,           // ✅ ADD THIS
+    deleteDispute,
     deleteAllBookings,
     deleteBooking
 } from '../controllers/booking.controller.js';
@@ -40,10 +40,19 @@ Bookingroutes.delete('/:bookingId/delete', protect, ownerOnly, deleteBooking);
 Bookingroutes.get('/admin/all-bookings', protect, adminOnly, adminGetAllBookings);
 
 // ============ DISPUTE Routes ============
+// ⚠️ IMPORTANT: More specific routes FIRST, then parameterized routes
+
+// 1. POST route for creating dispute (no conflict)
 Bookingroutes.post('/:bookingId/dispute', protect, createDispute);
+
+// 2. GET all disputes (no parameter)
 Bookingroutes.get('/admin/disputes', protect, adminOnly, getAllDisputes);
-Bookingroutes.get('/admin/disputes/:disputeId', protect, adminOnly, getDisputeById);
+
+// 3. 🟢 SPECIFIC PATCH/DELETE routes FIRST (before parameterized GET)
 Bookingroutes.patch('/admin/disputes/:disputeId/resolve', protect, adminOnly, resolveDispute);
-Bookingroutes.delete('/admin/disputes/:disputeId', protect, adminOnly, deleteDispute); // ✅ ADD THIS - Delete dispute by ID
+Bookingroutes.delete('/admin/disputes/:disputeId', protect, adminOnly, deleteDispute);
+
+// 4. ⚠️ PARAMETERIZED GET route MUST come LAST
+Bookingroutes.get('/admin/disputes/:disputeId', protect, adminOnly, getDisputeById);
 
 export default Bookingroutes;
