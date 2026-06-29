@@ -3162,6 +3162,129 @@ export const getUnitDetails = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/bookings/unit/:unitId/calendar-dates
+ * Get ONLY the dates for calendar display (minimal data for faster response)
+ * This controller is specifically for the calendar view
+ */
+export const getCalendarDates = async (req, res) => {
+  try {
+    const { unitId } = req.params;
+
+    // Validate unit exists
+    const unitCheck = await pool.query(
+      `SELECT id, name FROM space_units 
+       WHERE id = $1 AND is_active = true`,
+      [unitId]
+    );
+
+    if (unitCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Unit not found or inactive"
+      });
+    }
+
+    // Get all confirmed and pending bookings for this unit
+    const result = await pool.query(
+      `SELECT 
+        id,
+        start_time,
+        end_time,
+        status,
+        booking_ref
+      FROM bookings
+      WHERE space_unit_id = $1
+        AND status IN ('confirmed', 'pending')
+        AND start_time >= CURRENT_DATE
+      ORDER BY start_time ASC`,
+      [unitId]
+    );
+
+    // Extract just the dates
+    const bookings = result.rows;
+    const bookedDates = [];
+    const fullDayBookings = [];
+    const timeSlotBookings = [];
+
+    bookings.forEach(booking => {
+      const startDate = new Date(booking.start_time);
+      const endDate = new Date(booking.end_time);
+      const dateKey = startDate.toISOString().split('T')[0];
+
+      // Calculate duration in hours
+      const durationHours = (endDate - startDate) / (1000 * 60 * 60);
+      const isFullDay = durationHours >= 24;
+
+      // For full-day bookings, mark the entire date
+      if (isFullDay) {
+        fullDayBookings.push({
+          date: dateKey,
+          bookingRef: booking.booking_ref,
+          status: booking.status
+        });
+      } else {
+        // For time-slot bookings, store the time range
+        timeSlotBookings.push({
+          date: dateKey,
+          startTime: booking.start_time,
+          endTime: booking.end_time,
+          bookingRef: booking.booking_ref,
+          status: booking.status
+        });
+      }
+
+      // Add to booked dates if not already present
+      if (!bookedDates.includes(dateKey)) {
+        bookedDates.push(dateKey);
+      }
+    });
+
+    // Generate available dates for the next 6 months
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const sixMonthsLater = new Date(today);
+    sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
+
+    const availableDates = [];
+    const currentDate = new Date(today);
+
+    while (currentDate <= sixMonthsLater) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      if (!bookedDates.includes(dateStr)) {
+        availableDates.push(dateStr);
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Simple response - only what the calendar needs
+    return res.status(200).json({
+      success: true,
+      data: {
+        unitId: unitId,
+        unitName: unitCheck.rows[0].name,
+        // These are the main arrays the calendar needs
+        bookedDates: bookedDates,        // Dates that are fully or partially booked
+        availableDates: availableDates,   // Dates that are completely free
+        // Additional info for detailed view
+        details: {
+          fullDayBookings: fullDayBookings,
+          timeSlotBookings: timeSlotBookings,
+          totalBookings: bookings.length
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("getCalendarDates error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 // NEW ENDPOINT: Get images separately
 export const getUnitImages = async (req, res) => {
   try {

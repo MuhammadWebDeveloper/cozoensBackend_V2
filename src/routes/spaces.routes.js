@@ -18,6 +18,7 @@ import {
     getMeetingRooms,
     getUnitDetails,
     getUnitImages,
+    getCalendarDates,
 } from "../controllers/spaceController.js";
 import protect from "../middleware/protect.middleware.js";
 
@@ -46,6 +47,7 @@ spacesRoutes.get("/unit/dedicated_desks", getDedicatedDesks);
 spacesRoutes.get("/unit/private_cabins", getPrivateCabins);
 spacesRoutes.get("/unit/meeting_rooms", getMeetingRooms);
 spacesRoutes.get('/unit/:unitId', getUnitDetails);
+router.get('/unit/:unitId/calendar-dates', getCalendarDates);
 spacesRoutes.get('/unit/:unitId/images', getUnitImages);
 // Unit routes (nested under spaces)
 // spacesRoutes.get("/unit/:unitId", getUnitDetails);
