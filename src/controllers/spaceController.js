@@ -3201,62 +3201,44 @@ export const getCalendarDates = async (req, res) => {
       [unitId]
     );
 
+    // Extract just the dates
     const bookings = result.rows;
-    const bookedDatesSet = new Set(); // Use Set for better performance
+    const bookedDates = [];
     const fullDayBookings = [];
     const timeSlotBookings = [];
 
     bookings.forEach(booking => {
       const startDate = new Date(booking.start_time);
       const endDate = new Date(booking.end_time);
+      const dateKey = startDate.toISOString().split('T')[0];
 
       // Calculate duration in hours
       const durationHours = (endDate - startDate) / (1000 * 60 * 60);
       const isFullDay = durationHours >= 24;
 
-      const startDateStr = startDate.toISOString().split('T')[0];
-      const endDateStr = endDate.toISOString().split('T')[0];
+      // For full-day bookings, mark the entire date
+      if (isFullDay) {
+        fullDayBookings.push({
+          date: dateKey,
+          bookingRef: booking.booking_ref,
+          status: booking.status
+        });
+      } else {
+        // For time-slot bookings, store the time range
+        timeSlotBookings.push({
+          date: dateKey,
+          startTime: booking.start_time,
+          endTime: booking.end_time,
+          bookingRef: booking.booking_ref,
+          status: booking.status
+        });
+      }
 
-      // ✅ FIX: Generate ALL dates between start and end (inclusive)
-      const currentDate = new Date(startDate);
-      currentDate.setHours(0, 0, 0, 0); // Reset time to midnight for proper comparison
-      const endDateMidnight = new Date(endDate);
-      endDateMidnight.setHours(0, 0, 0, 0);
-
-      // Loop through each day from start to end
-      while (currentDate <= endDateMidnight) {
-        const dateKey = currentDate.toISOString().split('T')[0];
-
-        // Add to booked dates set
-        bookedDatesSet.add(dateKey);
-
-        // For full-day bookings, mark all dates in range
-        if (isFullDay) {
-          fullDayBookings.push({
-            date: dateKey,
-            bookingRef: booking.booking_ref,
-            status: booking.status
-          });
-        } else {
-          // For time-slot bookings, only mark the start date with time details
-          if (dateKey === startDateStr) {
-            timeSlotBookings.push({
-              date: dateKey,
-              startTime: booking.start_time,
-              endTime: booking.end_time,
-              bookingRef: booking.booking_ref,
-              status: booking.status
-            });
-          }
-        }
-
-        // Move to next day
-        currentDate.setDate(currentDate.getDate() + 1);
+      // Add to booked dates if not already present
+      if (!bookedDates.includes(dateKey)) {
+        bookedDates.push(dateKey);
       }
     });
-
-    // Convert Set to Array
-    const bookedDates = Array.from(bookedDatesSet);
 
     // Generate available dates for the next 6 months
     const today = new Date();
@@ -3269,7 +3251,7 @@ export const getCalendarDates = async (req, res) => {
 
     while (currentDate <= sixMonthsLater) {
       const dateStr = currentDate.toISOString().split('T')[0];
-      if (!bookedDatesSet.has(dateStr)) {
+      if (!bookedDates.includes(dateStr)) {
         availableDates.push(dateStr);
       }
       currentDate.setDate(currentDate.getDate() + 1);
@@ -3281,8 +3263,10 @@ export const getCalendarDates = async (req, res) => {
       data: {
         unitId: unitId,
         unitName: unitCheck.rows[0].name,
-        bookedDates: bookedDates,        // ✅ Now includes ALL dates in range
-        availableDates: availableDates,
+        // These are the main arrays the calendar needs
+        bookedDates: bookedDates,        // Dates that are fully or partially booked
+        availableDates: availableDates,   // Dates that are completely free
+        // Additional info for detailed view
         details: {
           fullDayBookings: fullDayBookings,
           timeSlotBookings: timeSlotBookings,
@@ -3293,7 +3277,6 @@ export const getCalendarDates = async (req, res) => {
 
   } catch (error) {
     console.error("getCalendarDates error:", error.message);
-    console.error("Stack trace:", error.stack);
     return res.status(500).json({
       success: false,
       message: "Server error",
