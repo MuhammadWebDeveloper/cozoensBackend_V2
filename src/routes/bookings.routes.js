@@ -19,7 +19,7 @@ import {
     deleteDispute,
     deleteAllBookings,
     deleteBooking,
-    getUnitBookedSlots
+    // getUnitBookedSlots
 } from '../controllers/booking.controller.js';
 import protect from '../middleware/protect.middleware.js';
 import { adminOnly, ownerOnly } from '../middleware/role.middleware.js';
@@ -37,7 +37,7 @@ Bookingroutes.get('/owner/requests', protect, ownerOnly, getOwnerBookings);
 Bookingroutes.patch('/:bookingId/confirm', protect, ownerOnly, confirmBooking);
 Bookingroutes.patch('/:bookingId/reject', protect, ownerOnly, rejectBooking);
 Bookingroutes.patch('/:bookingId/owner-cancel', protect, ownerOnly, ownerCancelBooking);
-router.get('/unit/:unitId/booked-slots', getUnitBookedSlots);
+// router.get('/unit/:unitId/booked-slots', getUnitBookedSlots);
 Bookingroutes.delete('/:bookingId/delete', protect, ownerOnly, deleteBooking);
 
 // ============ ADMIN Routes ============
