@@ -3210,34 +3210,49 @@ export const getCalendarDates = async (req, res) => {
     bookings.forEach(booking => {
       const startDate = new Date(booking.start_time);
       const endDate = new Date(booking.end_time);
-      const dateKey = startDate.toISOString().split('T')[0];
+
+      // ✅ FIX: Generate all dates between start and end
+      const dateKeys = [];
+      const currentDate = new Date(startDate);
+
+      // Loop through each day from start to end
+      while (currentDate <= endDate) {
+        const dateKey = currentDate.toISOString().split('T')[0];
+        dateKeys.push(dateKey);
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
 
       // Calculate duration in hours
       const durationHours = (endDate - startDate) / (1000 * 60 * 60);
       const isFullDay = durationHours >= 24;
 
-      // For full-day bookings, mark the entire date
-      if (isFullDay) {
-        fullDayBookings.push({
-          date: dateKey,
-          bookingRef: booking.booking_ref,
-          status: booking.status
-        });
-      } else {
-        // For time-slot bookings, store the time range
-        timeSlotBookings.push({
-          date: dateKey,
-          startTime: booking.start_time,
-          endTime: booking.end_time,
-          bookingRef: booking.booking_ref,
-          status: booking.status
-        });
-      }
+      // For each date in the range, mark as booked
+      dateKeys.forEach(dateKey => {
+        // For full-day bookings, mark the entire date
+        if (isFullDay) {
+          fullDayBookings.push({
+            date: dateKey,
+            bookingRef: booking.booking_ref,
+            status: booking.status
+          });
+        } else {
+          // For time-slot bookings, store the time range for the start date only
+          if (dateKey === startDate.toISOString().split('T')[0]) {
+            timeSlotBookings.push({
+              date: dateKey,
+              startTime: booking.start_time,
+              endTime: booking.end_time,
+              bookingRef: booking.booking_ref,
+              status: booking.status
+            });
+          }
+        }
 
-      // Add to booked dates if not already present
-      if (!bookedDates.includes(dateKey)) {
-        bookedDates.push(dateKey);
-      }
+        // Add to booked dates if not already present
+        if (!bookedDates.includes(dateKey)) {
+          bookedDates.push(dateKey);
+        }
+      });
     });
 
     // Generate available dates for the next 6 months
@@ -3263,10 +3278,8 @@ export const getCalendarDates = async (req, res) => {
       data: {
         unitId: unitId,
         unitName: unitCheck.rows[0].name,
-        // These are the main arrays the calendar needs
-        bookedDates: bookedDates,        // Dates that are fully or partially booked
-        availableDates: availableDates,   // Dates that are completely free
-        // Additional info for detailed view
+        bookedDates: bookedDates,        // ✅ Now includes ALL dates in range
+        availableDates: availableDates,
         details: {
           fullDayBookings: fullDayBookings,
           timeSlotBookings: timeSlotBookings,
