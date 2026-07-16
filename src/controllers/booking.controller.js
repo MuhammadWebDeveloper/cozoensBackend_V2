@@ -1649,7 +1649,7 @@ export const createBooking = async (req, res) => {
             `SELECT id, start_time, end_time, status, booking_ref
              FROM bookings 
              WHERE space_unit_id = $1 
-             AND status NOT IN ('cancelled', 'cancelled_by_owner', 'rejected', 'completed')
+             AND status NOT IN ('cancelled', 'cancelled_by_owner', 'rejected', 'completed','pending')
              AND (
                  (start_time <= $2 AND end_time > $2) OR
                  (start_time < $3 AND end_time >= $3) OR
@@ -1732,7 +1732,7 @@ export const createBooking = async (req, res) => {
             `INSERT INTO bookings (user_id, space_unit_id, start_time, end_time, total_price, status, booking_ref)
              VALUES ($1, $2, $3, $4, $5, $6, $7)
              RETURNING *`,
-            [user_id, space_unit_id, start_time, end_time, total_price, 'confirmed', booking_ref]
+            [user_id, space_unit_id, start_time, end_time, total_price, 'pending', booking_ref]
         );
 
         const booking = result.rows[0];
@@ -3121,7 +3121,7 @@ export const rejectDispute = async (req, res) => {
             try {
                 const isBuyer = party.id === booking.buyer_id;
                 const role = isBuyer ? 'Customer' : 'Space Owner';
-                
+
                 await transporter.sendMail({
                     from: `"CoZones Admin" <${process.env.EMAIL_USER}>`,
                     to: party.email,
