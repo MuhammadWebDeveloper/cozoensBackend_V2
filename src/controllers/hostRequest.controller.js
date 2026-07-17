@@ -21,47 +21,53 @@ export const submitHostRequest = async (req, res) => {
             });
         }
 
-        // GET USER DETAILS FOR EMAIL
-        const userQuery = await pool.query(
-            'SELECT full_name, email FROM users WHERE id = $1',
-            [user_id]
-        );
-        const user = userQuery.rows[0];
-
+        // Call stored procedure
         const result = await pool.query(
-            `INSERT INTO host_requests (
-                user_id, cnic_number, cnic_front_image, cnic_back_image, 
-                phone_number, additional_info, status, created_at, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW(), NOW()) 
-            RETURNING id`,
+            `SELECT submit_host_request(
+                $1::UUID, 
+                $2::VARCHAR, 
+                $3::TEXT, 
+                $4::TEXT, 
+                $5::VARCHAR, 
+                $6::TEXT
+            ) as result`,
             [user_id, cnic_number, cnic_front_image, cnic_back_image, phone_number, additional_info || null]
         );
 
-        const requestId = result.rows[0].id;
+        const response = result.rows[0].result;
+
+        console.log('📊 SP Response:', JSON.stringify(response, null, 2));
+
+        if (!response.success) {
+            return res.status(400).json({
+                success: false,
+                message: response.message
+            });
+        }
 
         // ✅ SEND ADMIN NOTIFICATION
-        console.log('📧 Sending admin notification for request:', requestId);
+        console.log('📧 Sending admin notification for request:', response.request_id);
         await sendAdminHostRequestNotification({
-            user_name: user.full_name,
-            user_email: user.email,
+            user_name: response.user.full_name,
+            user_email: response.user.email,
             phone_number: phone_number,
             cnic_number: cnic_number,
             additional_info: additional_info || 'N/A',
-            request_id: requestId,
-            submitted_at: new Date().toISOString()
+            request_id: response.request_id,
+            submitted_at: response.submitted_at
         });
 
         res.status(201).json({
             success: true,
             message: "Host request submitted successfully",
-            request_id: requestId
+            request_id: response.request_id
         });
 
     } catch (error) {
-        console.error("Submit host request error:", error);
+        console.error("❌ Submit host request error:", error);
         res.status(500).json({
             success: false,
-            message: "Server error"
+            message: "Server error: " + error.message
         });
     }
 };
@@ -78,36 +84,33 @@ export const getPendingHostRequests = async (req, res) => {
             });
         }
 
+        // Call stored procedure
         const result = await pool.query(
-            `SELECT 
-                hr.id, 
-                hr.cnic_number, 
-                hr.phone_number, 
-                hr.additional_info,
-                hr.status, 
-                hr.created_at,
-                hr.cnic_front_image,
-                hr.cnic_back_image,
-                u.id as user_id, 
-                u.email as user_email,
-                u.full_name as user_name
-             FROM host_requests hr
-             JOIN users u ON hr.user_id = u.id
-             WHERE hr.status = 'pending'
-             ORDER BY hr.created_at ASC`
+            `SELECT get_pending_host_requests() as result`
         );
+
+        const response = result.rows[0].result;
+
+        console.log('📊 SP Response:', JSON.stringify(response, null, 2));
+
+        if (!response.success) {
+            return res.status(500).json({
+                success: false,
+                message: response.message
+            });
+        }
 
         res.status(200).json({
             success: true,
-            count: result.rows.length,
-            requests: result.rows
+            count: response.count || 0,
+            requests: response.requests || []
         });
 
     } catch (error) {
-        console.error("Get pending requests error:", error);
+        console.error("❌ Get pending requests error:", error);
         res.status(500).json({
             success: false,
-            message: "Server error"
+            message: "Server error: " + error.message
         });
     }
 };
@@ -130,99 +133,44 @@ export const approveHostRequest = async (req, res) => {
             });
         }
 
-        await pool.query('BEGIN');
+        // Call stored procedure
+        const result = await pool.query(
+            `SELECT approve_host_request($1::UUID, $2::UUID, $3::TEXT) as result`,
+            [requestId, admin_id, admin_notes]
+        );
 
-        try {
-            // GET USER DETAILS BEFORE UPDATE
-            const userQuery = await pool.query(
-                `SELECT u.id, u.full_name, u.email, u.role, hr.id as request_id
-                 FROM host_requests hr
-                 JOIN users u ON hr.user_id = u.id
-                 WHERE hr.id = $1 AND hr.status = 'pending'`,
-                [requestId]
-            );
+        const response = result.rows[0].result;
 
-            if (userQuery.rows.length === 0) {
-                await pool.query('ROLLBACK');
+        console.log('📊 SP Response:', JSON.stringify(response, null, 2));
+
+        if (!response.success) {
+            if (response.message === 'Host request not found or already processed') {
                 return res.status(404).json({
                     success: false,
-                    message: "Host request not found or already processed"
+                    message: response.message
                 });
             }
-
-            const userData = userQuery.rows[0];
-
-            const requestResult = await pool.query(
-                `UPDATE host_requests 
-                 SET status = 'approved',
-                     admin_notes = COALESCE($1, admin_notes),
-                     reviewed_at = NOW(),
-                     reviewed_by = $2,
-                     updated_at = NOW()
-                 WHERE id = $3 AND status = 'pending'
-                 RETURNING id, user_id`,
-                [admin_notes, admin_id, requestId]
-            );
-
-            if (requestResult.rows.length === 0) {
-                await pool.query('ROLLBACK');
-                return res.status(404).json({
-                    success: false,
-                    message: "Host request not found or already processed"
-                });
-            }
-
-            const { user_id } = requestResult.rows[0];
-
-            const userUpdateResult = await pool.query(
-                `UPDATE users 
-                 SET role = 'owner',
-                     updated_at = NOW()
-                 WHERE id = $1 AND role != 'admin'
-                 RETURNING id, role, email, full_name`,
-                [user_id]
-            );
-
-            if (userUpdateResult.rows.length === 0) {
-                await pool.query('ROLLBACK');
-                return res.status(404).json({
-                    success: false,
-                    message: "User not found or cannot update admin role"
-                });
-            }
-
-            await pool.query('COMMIT');
-
-            const user = userUpdateResult.rows[0];
-
-            // ✅ SEND APPROVAL EMAIL
-            console.log('📧 Sending approval email to:', user.email);
-            await sendHostApprovalEmail({
-                email: user.email,
-                full_name: user.full_name  // ✅ Use full_name not name
+            return res.status(400).json({
+                success: false,
+                message: response.message
             });
-
-            res.status(200).json({
-                success: true,
-                message: "Host request approved successfully. User role updated to owner.",
-                data: {
-                    request_id: requestId,
-                    user: {
-                        id: user.id,
-                        email: user.email,
-                        name: user.full_name,
-                        role: user.role
-                    }
-                }
-            });
-
-        } catch (error) {
-            await pool.query('ROLLBACK');
-            throw error;
         }
 
+        // ✅ SEND APPROVAL EMAIL
+        console.log('📧 Sending approval email to:', response.data.user.email);
+        await sendHostApprovalEmail({
+            email: response.data.user.email,
+            full_name: response.data.user.name
+        });
+
+        res.status(200).json({
+            success: true,
+            message: "Host request approved successfully. User role updated to owner.",
+            data: response.data
+        });
+
     } catch (error) {
-        console.error("Approve host request error:", error);
+        console.error("❌ Approve host request error:", error);
         res.status(500).json({
             success: false,
             message: "Server error: " + error.message
@@ -248,58 +196,45 @@ export const rejectHostRequest = async (req, res) => {
             });
         }
 
-        // GET USER DETAILS BEFORE UPDATE
-        const userQuery = await pool.query(
-            `SELECT u.id, u.full_name, u.email, hr.id as request_id
-             FROM host_requests hr
-             JOIN users u ON hr.user_id = u.id
-             WHERE hr.id = $1 AND hr.status = 'pending'`,
-            [requestId]
-        );
-
-        if (userQuery.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: "Host request not found or already processed"
-            });
-        }
-
-        const userData = userQuery.rows[0];
-
+        // Call stored procedure
         const result = await pool.query(
-            `UPDATE host_requests 
-             SET status = 'rejected',
-                 admin_notes = $1,
-                 reviewed_at = NOW(),
-                 reviewed_by = $2,
-                 updated_at = NOW()
-             WHERE id = $3 AND status = 'pending'
-             RETURNING id`,
-            [rejection_reason, admin_id, requestId]
+            `SELECT reject_host_request($1::UUID, $2::UUID, $3::TEXT) as result`,
+            [requestId, admin_id, rejection_reason]
         );
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({
+        const response = result.rows[0].result;
+
+        console.log('📊 SP Response:', JSON.stringify(response, null, 2));
+
+        if (!response.success) {
+            if (response.message === 'Host request not found or already processed') {
+                return res.status(404).json({
+                    success: false,
+                    message: response.message
+                });
+            }
+            return res.status(400).json({
                 success: false,
-                message: "Host request not found or already processed"
+                message: response.message
             });
         }
 
         // ✅ SEND REJECTION EMAIL
-        console.log('📧 Sending rejection email to:', userData.email);
+        console.log('📧 Sending rejection email to:', response.data.user.email);
         await sendHostRejectionEmail({
-            email: userData.email,
-            full_name: userData.full_name,  // ✅ Use full_name
+            email: response.data.user.email,
+            full_name: response.data.user.name,
             reason: rejection_reason
         });
 
         res.status(200).json({
             success: true,
-            message: "Host request rejected successfully"
+            message: "Host request rejected successfully",
+            data: response.data
         });
 
     } catch (error) {
-        console.error("Reject host request error:", error);
+        console.error("❌ Reject host request error:", error);
         res.status(500).json({
             success: false,
             message: "Server error: " + error.message
@@ -315,69 +250,39 @@ export const getHostRequestStatus = async (req, res) => {
         const { requestId } = req.params;
         const user_id = req.user.id;
 
-        let query;
-        let params;
+        // Call stored procedure
+        const result = await pool.query(
+            `SELECT get_host_request_status($1::UUID, $2::UUID) as result`,
+            [user_id, requestId || null]
+        );
 
-        if (!requestId) {
-            query = `
-                SELECT 
-                    hr.id, hr.cnic_number, hr.phone_number, hr.additional_info,
-                    hr.status, COALESCE(hr.admin_notes, '') as admin_comment,
-                    hr.created_at, hr.updated_at,
-                    u.email as user_email,
-                    u.full_name as user_name
-                FROM host_requests hr
-                JOIN users u ON hr.user_id = u.id
-                WHERE hr.user_id = $1
-                ORDER BY hr.created_at DESC
-                LIMIT 1
-            `;
-            params = [user_id];
-        } else {
-            query = `
-                SELECT 
-                    hr.id, hr.cnic_number, hr.phone_number, hr.additional_info,
-                    hr.status, COALESCE(hr.admin_notes, '') as admin_comment,
-                    hr.created_at, hr.updated_at,
-                    u.email as user_email,
-                    u.full_name as user_name
-                FROM host_requests hr
-                JOIN users u ON hr.user_id = u.id
-                WHERE hr.id = $1 AND hr.user_id = $2
-            `;
-            params = [requestId, user_id];
-        }
+        const response = result.rows[0].result;
 
-        const result = await pool.query(query, params);
+        console.log('📊 SP Response:', JSON.stringify(response, null, 2));
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({
+        if (!response.success) {
+            if (response.message === 'Host request not found') {
+                return res.status(404).json({
+                    success: false,
+                    message: response.message
+                });
+            }
+            return res.status(500).json({
                 success: false,
-                message: "Host request not found"
+                message: response.message
             });
         }
 
-        const request = result.rows[0];
-        const statusDescriptions = {
-            'pending': 'Your request is being reviewed by admin',
-            'approved': 'Congratulations! Your host request has been approved',
-            'rejected': 'Your host request has been rejected'
-        };
-
         res.status(200).json({
             success: true,
-            request: {
-                ...request,
-                status_description: statusDescriptions[request.status] || 'Status unknown'
-            }
+            request: response.request
         });
 
     } catch (error) {
-        console.error("Get host request status error:", error);
+        console.error("❌ Get host request status error:", error);
         res.status(500).json({
             success: false,
-            message: "Server error",
-            error: error.message
+            message: "Server error: " + error.message
         });
     }
 };
@@ -389,28 +294,34 @@ export const getMyHostRequests = async (req, res) => {
     try {
         const user_id = req.user.id;
 
+        // Call stored procedure
         const result = await pool.query(
-            `SELECT 
-                id, cnic_number, phone_number, additional_info,
-                status, COALESCE(admin_notes, '') as admin_comment,
-                created_at, updated_at
-             FROM host_requests 
-             WHERE user_id = $1 
-             ORDER BY created_at DESC`,
+            `SELECT get_my_host_requests($1::UUID) as result`,
             [user_id]
         );
 
+        const response = result.rows[0].result;
+
+        console.log('📊 SP Response:', JSON.stringify(response, null, 2));
+
+        if (!response.success) {
+            return res.status(500).json({
+                success: false,
+                message: response.message
+            });
+        }
+
         res.status(200).json({
             success: true,
-            count: result.rows.length,
-            requests: result.rows
+            count: response.count || 0,
+            requests: response.requests || []
         });
 
     } catch (error) {
-        console.error("Get my host requests error:", error);
+        console.error("❌ Get my host requests error:", error);
         res.status(500).json({
             success: false,
-            message: "Server error"
+            message: "Server error: " + error.message
         });
     }
 };
@@ -422,67 +333,38 @@ export const canSubmitHostRequest = async (req, res) => {
     try {
         const user_id = req.user.id;
 
+        // Call stored procedure
         const result = await pool.query(
-            `SELECT id, status, created_at 
-             FROM host_requests 
-             WHERE user_id = $1 
-             ORDER BY created_at DESC 
-             LIMIT 1`,
+            `SELECT can_submit_host_request($1::UUID) as result`,
             [user_id]
         );
 
-        if (result.rows.length === 0) {
-            return res.status(200).json({
-                success: true,
-                canSubmit: true,
-                message: "No existing request found. You can submit a new request."
+        const response = result.rows[0].result;
+
+        console.log('📊 SP Response:', JSON.stringify(response, null, 2));
+
+        if (!response.success) {
+            return res.status(500).json({
+                success: false,
+                canSubmit: false,
+                message: response.message
             });
         }
 
-        const latestRequest = result.rows[0];
-
-        switch (latestRequest.status) {
-            case 'pending':
-                return res.status(200).json({
-                    success: true,
-                    canSubmit: false,
-                    message: "You already have a pending request. Please wait for admin review.",
-                    redirectTo: `/host-requests/status/${latestRequest.id}`,
-                    status: 'pending',
-                    requestId: latestRequest.id
-                });
-
-            case 'approved':
-                return res.status(200).json({
-                    success: true,
-                    canSubmit: false,
-                    message: "Your host request has already been approved! You are now a host.",
-                    redirectTo: '/seller-dashboard',
-                    status: 'approved',
-                    requestId: latestRequest.id
-                });
-
-            case 'rejected':
-                return res.status(200).json({
-                    success: true,
-                    canSubmit: true,
-                    message: "Your previous request was rejected. You can submit a new request.",
-                    warning: true,
-                    previousRequestId: latestRequest.id,
-                    previousRejectionDate: latestRequest.created_at,
-                    status: 'rejected'
-                });
-
-            default:
-                return res.status(200).json({
-                    success: true,
-                    canSubmit: true,
-                    message: "You can submit a new request."
-                });
-        }
+        return res.status(200).json({
+            success: true,
+            canSubmit: response.canSubmit,
+            message: response.message,
+            ...(response.redirectTo && { redirectTo: response.redirectTo }),
+            ...(response.status && { status: response.status }),
+            ...(response.requestId && { requestId: response.requestId }),
+            ...(response.warning && { warning: response.warning }),
+            ...(response.previousRequestId && { previousRequestId: response.previousRequestId }),
+            ...(response.previousRejectionDate && { previousRejectionDate: response.previousRejectionDate })
+        });
 
     } catch (error) {
-        console.error("Error checking submission eligibility:", error);
+        console.error("❌ Error checking submission eligibility:", error);
         res.status(500).json({
             success: false,
             canSubmit: false,
