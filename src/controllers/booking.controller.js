@@ -1637,7 +1637,6 @@ export const rejectDispute = async (req, res) => {
     }
 };
 
-
 // ============================================
 // COMPLETE BOOKING (Owner)
 // Description: Owner marks a booking as completed
@@ -1731,4 +1730,4 @@ export const completeBooking = async (req, res) => {
             message: "Server error: " + error.message
         });
     }
-};
+};  // ✅ This closing brace was missing!
