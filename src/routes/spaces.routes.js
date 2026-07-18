@@ -1,4 +1,5 @@
 import express from "express";
+const spacesRoutes = express.Router();
 import {
     createSpace,
     addSpaceUnit,
@@ -22,7 +23,6 @@ import {
 } from "../controllers/spaceController.js";
 import protect from "../middleware/protect.middleware.js";
 
-const spacesRoutes = express.Router();
 
 // Public routes (no login needed)                        Admin routes
 
