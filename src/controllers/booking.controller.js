@@ -1637,3 +1637,98 @@ export const rejectDispute = async (req, res) => {
     }
 };
 
+
+// ============================================
+// COMPLETE BOOKING (Owner)
+// Description: Owner marks a booking as completed
+// ============================================
+export const completeBooking = async (req, res) => {
+    try {
+        const { bookingId } = req.params;
+        const owner_id = req.user.id;
+
+        console.log(`✅ Owner ${owner_id} attempting to complete booking ${bookingId}`);
+
+        // Validate booking ID
+        if (!bookingId) {
+            return res.status(400).json({
+                success: false,
+                message: "Booking ID is required"
+            });
+        }
+
+        // Call stored procedure
+        const result = await pool.query(
+            `SELECT complete_booking($1::UUID, $2::UUID) as result`,
+            [bookingId, owner_id]
+        );
+
+        const response = result.rows[0].result;
+
+        console.log('📊 SP Response:', JSON.stringify(response, null, 2));
+
+        if (!response.success) {
+            if (response.message === 'Booking not found, already completed, or not confirmed') {
+                return res.status(404).json({
+                    success: false,
+                    message: "Booking not found, already completed, or not confirmed"
+                });
+            }
+            return res.status(400).json({
+                success: false,
+                message: response.message
+            });
+        }
+
+        // Send email notification to buyer
+        const booking = response.booking;
+        const details = response.booking_details;
+
+        try {
+            await transporter.sendMail({
+                from: `"CoZones" <${process.env.EMAIL_USER}>`,
+                to: details.buyer_email,
+                subject: `✅ Booking Completed - ${booking.booking_ref}`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                        <h2 style="color: #38a169;">Booking Completed ✅</h2>
+                        <p>Dear <strong>${details.buyer_name}</strong>,</p>
+                        <p>The space owner has marked your booking as <strong style="color: #38a169;">COMPLETED</strong>.</p>
+                        <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                            <h3>Booking Details:</h3>
+                            <p><strong>Booking Ref:</strong> ${booking.booking_ref}</p>
+                            <p><strong>Unit:</strong> ${details.unit_name}</p>
+                            <p><strong>Space:</strong> ${details.space_name}</p>
+                            <p><strong>Date:</strong> ${formatDateForDisplay(booking.start_time)}</p>
+                            <p><strong>Total Amount:</strong> PKR ${parseFloat(booking.total_price).toLocaleString()}</p>
+                        </div>
+                        <p>Thank you for choosing CoZones! We hope you had a great experience.</p>
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="https://cozones.netlify.app/my-bookings" 
+                               style="background: #011CCD; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                                View My Bookings
+                            </a>
+                        </div>
+                    </div>
+                `
+            });
+            console.log(`📧 Completion email sent to buyer: ${details.buyer_email}`);
+        } catch (emailErr) {
+            console.error('❌ Completion email failed:', emailErr.message);
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Booking marked as completed",
+            booking: booking
+        });
+
+    } catch (error) {
+        console.error("❌ completeBooking error:", error.message);
+        console.error("Stack:", error.stack);
+        return res.status(500).json({
+            success: false,
+            message: "Server error: " + error.message
+        });
+    }
+};
